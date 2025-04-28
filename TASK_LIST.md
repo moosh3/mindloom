@@ -13,9 +13,9 @@
 - [x] Create database schema for Agents table
 - [x] Create database schema for Teams table
 - [x] Create database schema for Runs table
-- [ ] Create schema for agent_variables and agent_schedules
-- [ ] Create schema for team_agents association
-- [ ] Create schema for run_logs and run_artifacts
+- [x] Create schema for agent_variables and agent_schedules
+- [x] Create schema for team_agents association
+- [x] Create schema for run_logs and run_artifacts
 - [ ] Write database migration scripts
 - [ ] Implement ORM models for all database tables
 - [ ] Create database connection pool and configuration
