@@ -16,9 +16,9 @@
 - [x] Create schema for agent_variables and agent_schedules
 - [x] Create schema for team_agents association
 - [x] Create schema for run_logs and run_artifacts
-- [ ] Write database migration scripts
-- [ ] Implement ORM models for all database tables
-- [ ] Create database connection pool and configuration
+- [x] Write database migration scripts
+- [x] Implement ORM models for all database tables
+- [x] Create database connection pool and configuration
 
 ### Authentication System
 - [ ] Implement JWT token generation and validation
