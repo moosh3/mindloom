@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount the source code directory for hot-reloading
+      - ./backend:/app
+    # Command is already defined in the Dockerfile CMD
+    environment:
+      # Add DATABASE_URL for the backend service to connect to the DB
+      # The hostname 'db' matches the service name below
+      - DATABASE_URL=postgresql+asyncpg://mindloom_user:mindloom_password@db:5432/mindloom_db
+      # Add REDIS_URL for the backend service
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db: # Use long form to specify dependency condition
+        condition: service_healthy # Wait for DB healthcheck to pass
+      redis: # Add dependency on redis
+        condition: service_started # Simple start is usually fine for Redis
+
+  db:
+    image: postgres:15-alpine # Use a specific version, alpine for smaller size
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=mindloom_user
+      - POSTGRES_PASSWORD=mindloom_password
+      - POSTGRES_DB=mindloom_db
+    ports:
+      # Optionally expose the port to the host machine for debugging/tools
+      - "5432:5432"
+    healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U mindloom_user -d mindloom_db"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+
+  redis:
+    image: redis:7-alpine # Use a specific version, alpine for smaller size
+    volumes:
+      - redis_data:/data
+    ports:
+      # Optionally expose Redis port for debugging
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -1,0 +1,5 @@
+- Refer to PRD.md for questions about the project requirements
+- Refer to TASK_LIST.md for questions about the project tasks
+- Refer to xdocs/agno-agi-agno.txt for Agno AI library documentation
+- Each time you begin a task, create a new git branch
+- Each time you complete a task, commit and push to the new git branch and update TASK_LIST.md

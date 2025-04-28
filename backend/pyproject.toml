@@ -1,0 +1,22 @@
+[project]
+name = "mindloom"
+version = "0.1.0"
+description = "Backend API for the Mindloom platform"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110.0",         # Core web framework
+    "uvicorn[standard]>=0.29.0", # ASGI server
+    "sqlalchemy", # Added ORM
+    "asyncpg",    # Added PostgreSQL async driver
+    "alembic",    # Added migrations tool
+]
+
+[build-system]
+requires = ["uv>=0.1.18", "uv_build"]
+build-backend = "uv_build"
+
+[project.scripts]
+mindloom = "src.main:app"
+
+[tool.uv.sources]
+mindloom = { path = "mindloom" }
