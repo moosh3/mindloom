@@ -73,6 +73,8 @@ class RunORM(Base):
     # Relationships
     user = relationship("User", back_populates="runs", lazy="selectin")
     agent = relationship("AgentORM", back_populates="runs", lazy="selectin")
+    logs = relationship("RunLogORM", back_populates="run", cascade="all, delete-orphan", lazy="selectin") # Relationship to logs
+    artifacts = relationship("RunArtifactORM", back_populates="run", cascade="all, delete-orphan") # Relationship to artifacts
 
     def __repr__(self):
         return f"<Run(id={self.id}, agent_id={self.agent_id}, status='{self.status}')>"
@@ -84,3 +86,110 @@ class RunORM(Base):
 # Add back-population to AgentORM model:
 # In agent.py:
 # runs = relationship("RunORM", back_populates="agent")
+
+
+# --- Run Log Models --- #
+
+class LogLevel(str, Enum):
+    DEBUG = "debug"
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+    CRITICAL = "critical"
+
+class RunLogBase(BaseModel):
+    """Base model for Run Log properties."""
+    run_id: uuid.UUID = Field(..., description="ID of the run this log belongs to")
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Timestamp of the log entry")
+    level: LogLevel = Field(LogLevel.INFO, description="Log level (e.g., INFO, ERROR)")
+    message: str = Field(..., description="Log message content")
+    log_metadata: Optional[Dict[str, Any]] = Field(None, description="Optional structured metadata")
+
+class RunLogCreate(RunLogBase):
+    """Model for creating a new run log entry (typically done internally)."""
+    pass
+
+class RunLog(RunLogBase):
+    """Model for representing a run log entry, including its ID."""
+    id: uuid.UUID = Field(..., description="Unique identifier for the log entry")
+
+    class Config:
+        from_attributes = True
+
+# --- SQLAlchemy ORM Model for Run Log --- #
+
+from sqlalchemy import Text # Import Text type
+
+class RunLogORM(Base):
+    """Database model for run logs."""
+    __tablename__ = "run_logs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    level: Mapped[LogLevel] = mapped_column(SQLAlchemyEnum(LogLevel), nullable=False, index=True)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    log_metadata: Mapped[dict | None] = mapped_column(JSON)
+
+    # Foreign Key to Run
+    run_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("runs.id"), nullable=False, index=True)
+
+    # Relationship to Run
+    run = relationship("RunORM", back_populates="logs")
+
+    def __repr__(self):
+        return f"<RunLog(id={self.id}, run_id={self.run_id}, level='{self.level}')>"
+
+
+# --- Run Artifact Models --- #
+
+class ArtifactType(str, Enum):
+    FILE = "file"
+    IMAGE = "image"
+    TEXT = "text"
+    JSON = "json"
+    OTHER = "other"
+
+class RunArtifactBase(BaseModel):
+    """Base model for Run Artifact properties."""
+    run_id: uuid.UUID = Field(..., description="ID of the run this artifact belongs to")
+    name: str = Field(..., description="Name of the artifact (e.g., filename)")
+    artifact_type: ArtifactType = Field(ArtifactType.OTHER, description="Type of the artifact")
+    # Store location or reference, not the data itself in the DB usually
+    storage_path: Optional[str] = Field(None, description="Path or reference to where the artifact is stored (e.g., S3 URL, local path)")
+    content_type: Optional[str] = Field(None, description="MIME type of the artifact")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Optional metadata about the artifact")
+
+class RunArtifactCreate(RunArtifactBase):
+    """Model for creating a new run artifact entry (typically done internally)."""
+    pass
+
+class RunArtifact(RunArtifactBase):
+    """Model for representing a run artifact entry, including its ID."""
+    id: uuid.UUID = Field(..., description="Unique identifier for the artifact entry")
+    created_at: datetime = Field(..., description="Timestamp when the artifact entry was created")
+
+    class Config:
+        from_attributes = True
+
+# --- SQLAlchemy ORM Model for Run Artifact --- #
+
+class RunArtifactORM(Base):
+    """Database model for run artifacts."""
+    __tablename__ = "run_artifacts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    artifact_type: Mapped[ArtifactType] = mapped_column(SQLAlchemyEnum(ArtifactType), nullable=False)
+    storage_path: Mapped[str | None] = mapped_column(String(1024)) # Path/URL reference
+    content_type: Mapped[str | None] = mapped_column(String(100))
+    artifact_metadata: Mapped[dict | None] = mapped_column(JSON) # Renamed from metadata
+
+    # Foreign Key to Run
+    run_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("runs.id"), nullable=False, index=True)
+
+    # Relationship to Run
+    run = relationship("RunORM", back_populates="artifacts")
+
+    def __repr__(self):
+        return f"<RunArtifact(id={self.id}, run_id={self.run_id}, name='{self.name}')>"

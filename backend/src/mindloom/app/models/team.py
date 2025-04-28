@@ -34,7 +34,7 @@ from sqlalchemy.orm import relationship, Mapped, mapped_column
 from datetime import datetime
 
 from mindloom.db.base_class import Base
-from mindloom.db.association_tables import team_user_association
+from mindloom.db.association_tables import team_user_association, team_agent_association
 
 class TeamORM(Base):
     """Database model for teams."""
@@ -54,13 +54,13 @@ class TeamORM(Base):
         lazy="selectin"
     )
 
-    # Relationship: One-to-Many with Agents (Agents owned by the team? Or just associated? Decide later)
-    # For now, agent_ids in Pydantic is just a list. If relationship needed:
-    # agents = relationship("AgentORM", back_populates="team") # Need 'team' in AgentORM
-
-    # Add other relationships as needed (e.g., team owner/creator)
-    # owner_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
-    # owner = relationship("User", back_populates="owned_teams") # Need 'owned_teams' in User
+    # Relationship: Many-to-Many with Agents
+    agents = relationship(
+        "AgentORM",
+        secondary=team_agent_association,
+        back_populates="teams", # Define 'teams' relationship in AgentORM model
+        lazy="selectin"
+    )
 
     def __repr__(self):
         return f"<Team(id={self.id}, name='{self.name}')>"

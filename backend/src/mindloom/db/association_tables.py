@@ -11,4 +11,12 @@ team_user_association = Table(
     Column("user_id", UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True),
 )
 
+# Association Table for Many-to-Many Team-Agent relationship
+team_agent_association = Table(
+    "team_agent_association",
+    Base.metadata,
+    Column("team_id", UUID(as_uuid=True), ForeignKey("teams.id"), primary_key=True),
+    Column("agent_id", UUID(as_uuid=True), ForeignKey("agents.id"), primary_key=True),
+)
+
 # Add other association tables here if needed in the future
