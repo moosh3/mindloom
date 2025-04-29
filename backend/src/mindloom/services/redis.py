@@ -2,8 +2,11 @@ import redis.asyncio as redis
 import os
 from dotenv import load_dotenv
 import asyncio
-from utils.logger import logger
+import logging
 from typing import List, Any
+
+# Get a logger instance for this module
+logger = logging.getLogger(__name__)
 
 # Redis client
 client = None
