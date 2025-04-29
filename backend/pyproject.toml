@@ -24,6 +24,7 @@ dependencies = [
     "langchain-community", # Required for document loaders
     "redis", # Required for Redis memory storage
     "croniter", # Required for cron schedule validation
+    "kubernetes", # Required for interacting with K8s API
 ]
 
 [build-system]

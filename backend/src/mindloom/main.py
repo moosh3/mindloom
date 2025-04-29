@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from mindloom.app.api.v1.api import api_router as api_v1_router
-from mindloom.app.middleware.error_handling import http_error_handler
+from mindloom.app.middleware.error_handling import CustomErrorHandlerMiddleware
 
 app = FastAPI(
     title="Mindloom API",
@@ -9,7 +9,7 @@ app = FastAPI(
 )
 
 # Add the custom error handling middleware
-app.add_middleware(http_error_handler)
+app.add_middleware(CustomErrorHandlerMiddleware)
 
 @app.get("/health", tags=["Health"])
 async def health_check():
