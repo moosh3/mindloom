@@ -22,17 +22,35 @@ from mindloom.services.exceptions import ServiceError
 
 logger = logging.getLogger(__name__)
 
+# Use aioboto3 for async operations if possible, but keeping boto3 for simplicity now
+# from aiobotocore.session import get_session 
 
 class ContentBucketService:
     """Service layer for Content Bucket CRUD operations."""
 
     def __init__(self, db: AsyncSession):
         self.db = db
+        # Read S3 configuration from environment variables
+        aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
+        aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+        aws_region = os.getenv('AWS_REGION')
+        s3_endpoint_url = os.getenv('S3_ENDPOINT_URL') # Read optional endpoint URL
+
+        s3_client_args = {
+            'service_name': 's3',
+            'aws_access_key_id': aws_access_key_id,
+            'aws_secret_access_key': aws_secret_access_key,
+            'region_name': aws_region
+        }
+
+        if s3_endpoint_url:
+            logger.info(f"Using custom S3 endpoint URL: {s3_endpoint_url}")
+            s3_client_args['endpoint_url'] = s3_endpoint_url
+        else:
+            logger.info("Using default AWS S3 endpoint.")
+
         self.s3_client = boto3.client(
-            's3',
-            aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-            aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
-            region_name=os.getenv('AWS_REGION')
+            **s3_client_args
         )
         self.s3_bucket_name = os.getenv('S3_BUCKET_NAME')
         if not self.s3_bucket_name:

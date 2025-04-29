@@ -1,5 +1,6 @@
 import uuid
 from typing import List, Optional, Dict, Any
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response
 from sqlalchemy.ext.asyncio import AsyncSession

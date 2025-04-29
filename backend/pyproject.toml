@@ -11,10 +11,13 @@ dependencies = [
     "alembic", # Added migrations tool
     "python-jose[cryptography]", # Added JWT
     "passlib[bcrypt]", # Added password hashing
+    "pypdf", # Required by agno for PDF knowledge base
     "pydantic", # Added pydantic settings
     "pydantic[email]", # Added email validation
     "greenlet", # Added greenlet for async support
     "agno>=1.4.2",
+    "chromadb", # Required by agno for ChromaDB integration
+    "agno-aws", # Required by agno for S3 knowledge base
     "openai", # Required by agno for OpenAI integrations
     "azure-ai-inference", # Required by agno for Azure AI models
     "aiohttp", # Required by azure-ai-inference

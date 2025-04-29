@@ -19,3 +19,32 @@ class KnowledgeCreationError(ServiceError):
 class StorageCreationError(ServiceError):
     """Raised when configuring storage fails."""
     pass
+
+class AgentRunError(ServiceError):
+    """Raised when an agent run fails."""
+    pass
+
+class ToolCreationError(ServiceError):
+    """Raised when a tool instance cannot be created."""
+    pass
+    
+class ModelCreationError(ServiceError):
+    """Raised when a model instance cannot be created."""
+    pass
+    
+class ConfigurationError(ServiceError):
+    """Raised when a configuration is invalid."""
+    pass
+
+class EmbedderCreationError(ServiceError):
+    """Raised when an embedder instance cannot be created."""
+    pass
+
+class VectorStoreCreationError(ServiceError):
+    """Raised when a vector store instance cannot be created."""
+    pass
+
+class StorageCreationError(ServiceError):
+    """Raised when a storage instance cannot be created."""
+    pass
+    

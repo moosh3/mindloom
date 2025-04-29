@@ -1,0 +1,30 @@
+# Default values for pgvector
+replicaCount: 1
+
+image:
+  repository: pgvector/pgvector
+  tag: 0.8.0-pg14
+  pullPolicy: IfNotPresent
+
+postgresql:
+  username: postgres
+  password: postgres
+  database: postgres
+  port: 5432
+
+persistence:
+  enabled: true
+  size: 50Gi
+  storageClassName: do-block-storage-xfs
+
+service:
+  type: ClusterIP
+  port: 5432
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi

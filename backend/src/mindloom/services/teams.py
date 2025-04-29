@@ -3,11 +3,13 @@ import uuid
 import asyncio
 import logging
 import os
-from typing import List, Optional, Dict, Any, TYPE_CHECKING
+from typing import List, Optional, Dict, Any, TYPE_CHECKING, Tuple
 import agno
 from agno.memory.team import TeamMemory as AgnoMemory
 from agno.memory.v2.db.postgres import PostgresMemoryDb
 from agno.memory.v2.db.redis import RedisMemoryDb # <-- Import RedisMemory
+from langchain_core.language_models.chat_models import BaseChatModel
+from agno.embedder.base import Embedder # Added
 
 # Agno imports
 from agno.agent import Agent
@@ -15,8 +17,6 @@ from agno.team.team import Team
 from agno.models.azure import AzureOpenAI
 from agno.vectordb.pgvector import PgVector, SearchType
 from agno.embedder.azure_openai import AzureOpenAIEmbedder
-from agno.embedder.base import Embedder # Added
-
 # Database/App imports
 from sqlalchemy.ext.asyncio import AsyncSession, AsyncEngine
 from sqlalchemy.future import select
@@ -33,6 +33,7 @@ from mindloom.services.exceptions import ( # Import custom exceptions
     ServiceError,
     ConfigurationError
 )
+from mindloom.app.models.content_bucket import ContentBucketORM # Import ContentBucketORM
 
 if TYPE_CHECKING:
     from agno.knowledge.vectorstores.base import VectorStore
@@ -552,7 +553,7 @@ class TeamService:
 
             # Instantiate Chat Model
             if model_type == "AzureOpenAI":
-                azure_params = params # Assuming params are for Azure OpenAI Chat
+                azure_params = params # Assuming params are for Azure Open AI Chat
                 api_key = azure_params.get("api_key", settings.AZURE_OPENAI_API_KEY)
                 endpoint = azure_params.get("endpoint", settings.AZURE_OPENAI_ENDPOINT)
                 deployment_name = azure_params.get("deployment_name", settings.AZURE_OPENAI_CHAT_DEPLOYMENT_NAME)

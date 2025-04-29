@@ -31,7 +31,8 @@ async def create_agent(agent_in: AgentCreate, current_user: User = Depends(get_c
     - **Returns**: The newly created agent object.
     """
     new_id = uuid.uuid4()
-    agent_data = agent_in.model_dump(exclude={'content_bucket_ids'})
+    # Extract agent data from request, excluding fields not present in ORM and any potential owner_id to prevent duplicates
+    agent_data = agent_in.model_dump(exclude={'content_bucket_ids', 'owner_id'})
     content_bucket_ids = agent_in.content_bucket_ids
 
     # Associate agent with the current user

@@ -16,18 +16,18 @@ from agno.agent import Agent
 from agno.embedder.base import Embedder
 from agno.embedder.azure_openai import AzureOpenAIEmbedder
 from agno.embedder.openai import OpenAIEmbedder
-from agno.knowledge.base import KnowledgeBase
+from agno.knowledge.agent import AgentKnowledge
 from agno.knowledge.text import TextKnowledgeBase
 from agno.knowledge.s3.pdf import S3PDFKnowledgeBase
-from agno.models.base import Model
 from agno.models.azure import AzureOpenAI
-from agno.memory.base import AgnoMemory
+from agno.models.openai import OpenAIChat as OpenAI  # Added
+from agno.models.base import Model
 from agno.memory.v2.db.redis import RedisMemoryDb
 from agno.storage.agent.postgres import PostgresAgentStorage
 from agno.tools.toolkit import Toolkit
-from agno.vectordb.base import VectorStore
-from agno.vectordb.chroma import ChromaVectorStore
-from agno.vectordb.pgvector import PgVector, SearchType
+from agno.vectordb.base import VectorDb
+from agno.vectordb.chroma import ChromaDb
+from agno.vectordb.pgvector import PgVector
 from agno.embedder.base import Embedder
 
 # Langchain imports for loading
@@ -252,6 +252,24 @@ class AgentService:
                  logger.error(f"Failed to instantiate AzureOpenAI model: {e}", exc_info=True)
                  # Wrap instantiation errors
                  raise ModelCreationError(f"Failed to instantiate AzureOpenAI model: {e}") from e
+        elif provider == "openai":
+            api_key = params.get("api_key") or os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                logger.error("OPENAI_API_KEY not set for OpenAI model provider.")
+                raise ConfigurationError("OPENAI_API_KEY environment variable not set.")
+
+            model_name = params.get("model_name", "gpt-4o")
+            model_params = {
+                "api_key": api_key,
+                "model_name": model_name,
+                **params.get("config_overrides", {})
+            }
+
+            try:
+                return OpenAI(**model_params)
+            except Exception as e:
+                logger.error(f"Failed to instantiate OpenAI model: {e}", exc_info=True)
+                raise ModelCreationError(f"Failed to instantiate OpenAI model: {e}") from e
         # Add elif for other providers here if needed in the future
         # elif provider == "openai": ...
         else:
@@ -334,7 +352,7 @@ class AgentService:
         
         embedder = None
         try:
-            if provider == "OpenAIEmbedder":
+            if provider == "OpenAIEmbedder" or provider == "OpenAI":
                 api_key = os.getenv(api_key_env_var) if api_key_env_var else None
                 if not api_key:
                     logger.warning(f"OpenAI API key env var '{api_key_env_var}' not set or empty for KB embedder. Embedder may fail.")
@@ -371,7 +389,7 @@ class AgentService:
         logger.info(f"Successfully created knowledge base embedder instance: {type(embedder).__name__ if embedder else 'None'}")
         return embedder
 
-    def _create_kb_vector_store(self, vector_db_config: Dict[str, Any], bucket_id: uuid.UUID) -> Optional[VectorStore]:
+    def _create_kb_vector_store(self, vector_db_config: Dict[str, Any], bucket_id: uuid.UUID) -> Optional[VectorDb]:
         """Creates the Agno VectorDb instance based on knowledge base vector_db_config."""
         if not vector_db_config or not isinstance(vector_db_config, dict):
             logger.warning(f"Knowledge base vector DB config for bucket {bucket_id} is missing or invalid. Cannot create vector store.")
@@ -384,7 +402,7 @@ class AgentService:
         
         vector_store = None
         try:
-            if provider == "ChromaVectorStore":
+            if provider == "ChromaDb":
                 # Chroma requires path or host/port, handle config variations
                 path = config_overrides.get("path", f"./chroma_kb_{bucket_id.hex}") # Default local path
                 host = config_overrides.get("host")
@@ -392,9 +410,9 @@ class AgentService:
                 collection_name = config_overrides.get("collection_name", f"kb_{bucket_id.hex}")
                 
                 if host and port:
-                     vector_store = ChromaVectorStore(collection_name=collection_name, host=host, port=port, **config_overrides)
+                     vector_store = ChromaDb(collection_name=collection_name, host=host, port=port, **config_overrides)
                 else:
-                     vector_store = ChromaVectorStore(collection_name=collection_name, path=path, **config_overrides)
+                     vector_store = ChromaDb(collection_name=collection_name, path=path, **config_overrides)
             
             elif provider == "PgVector":
                 db_url = self.app_settings.DATABASE_URL # Get DB URL from settings
@@ -424,13 +442,13 @@ class AgentService:
 
     # --- End Knowledge Base Creation Helpers --- #
 
-    async def _create_knowledge_bases(self, agent_orm: AgentORM, db: AsyncSession) -> List[KnowledgeBase]:
+    async def _create_knowledge_bases(self, agent_orm: AgentORM, db: AsyncSession) -> List[TextKnowledgeBase]:
         """
         Dynamically instantiates KnowledgeBase objects for each linked Content Bucket,
         configures them with embedders and vector stores, and loads content (e.g., from S3).
         """
         logger.info(f"Agent {agent_orm.id}: Starting knowledge base creation for {len(agent_orm.content_buckets)} linked buckets.")
-        created_knowledge_bases: List[KnowledgeBase] = []
+        created_knowledge_bases: List[TextKnowledgeBase] = []
 
         if not agent_orm.content_buckets:
             logger.info(f"Agent {agent_orm.id}: No content buckets linked. No knowledge bases to create.")
@@ -564,6 +582,22 @@ class AgentService:
                  logger.error(f"Failed to instantiate AzureOpenAIEmbedder: {e}", exc_info=True)
                  # Wrap instantiation errors
                  raise KnowledgeCreationError(f"Failed to instantiate AzureOpenAIEmbedder: {e}") from e
+        elif provider == "openai":
+            api_key = params.get("api_key") or os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                logger.error("OPENAI_API_KEY not set for OpenAI embedder provider.")
+                raise ConfigurationError("OPENAI_API_KEY environment variable not set for embedder.")
+
+            embedder_params = {
+                "api_key": api_key,
+                **params.get("config_overrides", {})
+            }
+
+            try:
+                return OpenAIEmbedder(**embedder_params)
+            except Exception as e:
+                logger.error(f"Failed to instantiate OpenAIEmbedder: {e}", exc_info=True)
+                raise KnowledgeCreationError(f"Failed to instantiate OpenAIEmbedder: {e}") from e
         # Add elif for other providers here if needed in the future
         # elif provider == "openai": ...
         else:
@@ -576,7 +610,7 @@ class AgentService:
         agent_id: uuid.UUID,
         session_id: uuid.UUID,
         embedder: Optional[Embedder] = None
-    ) -> Optional[AgnoMemory]:
+    ):
          """Creates the Agno Storage instance based on storage_config."""
          if not storage_config:
              # Default to Postgres if no config specified

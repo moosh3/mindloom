@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     # Example: postgresql+asyncpg://user:password@host:port/dbname
     DATABASE_URL: Optional[PostgresDsn] = Field(None, env="DATABASE_URL")
 
+    # Kubernetes
+    KUBERNETES_NAMESPACE: str = Field("default", env="KUBERNETES_NAMESPACE")
+    KUBERNETES_EXECUTOR_IMAGE: str = Field("ghcr.io/moosh3/mindloom-executor:latest", env="KUBERNETES_EXECUTOR_IMAGE")
+
     # JWT Settings
     # Generate a default secret key for development, ensure it's overridden in production
     SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32), env="SECRET_KEY")
@@ -26,6 +30,9 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: Optional[str] = Field(None, env="AWS_SECRET_ACCESS_KEY")
     AWS_REGION: Optional[str] = Field(None, env="AWS_REGION")
     S3_BUCKET_NAME: Optional[str] = Field(None, env="S3_BUCKET_NAME")
+
+    # OpenAI Configuration (Optional)
+    OPENAI_API_KEY: Optional[str] = Field(None, env="OPENAI_API_KEY")
 
     # Allow loading from .env file if needed (requires python-dotenv)
     class Config:
