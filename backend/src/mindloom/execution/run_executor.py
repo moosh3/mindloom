@@ -31,6 +31,12 @@ from mindloom.services.exceptions import (
 # Import the Redis service for publishing logs
 import mindloom.services.redis as redis_service
 
+# Import settings
+from mindloom.core.config import settings
+
+# Import DB setup functions
+from mindloom.db.session import create_db_engine, create_db_session_factory
+
 # --- Logging Setup ---
 logger = logging.getLogger("run_executor")
 logger.setLevel(logging.INFO)
@@ -102,203 +108,179 @@ class RedisPubSubHandler(logging.Handler):
 logger.info("Initializing Mindloom Run Executor...", extra={"run_id": "PENDING_VALIDATION"})
 
 async def main():
-    # Initial log before run_id is validated as UUID
-    logger.info("Starting main execution block...", extra={"run_id": "PENDING_VALIDATION"})
-
-    # 1. Read Environment Variables
+    """Main execution logic for the run executor."""
     run_id_str = os.getenv("RUN_ID")
-    runnable_type = os.getenv("RUNNABLE_TYPE")
     runnable_id_str = os.getenv("RUNNABLE_ID")
-    input_data_str = os.getenv("INPUT_DATA", "{}")
-    db_url = os.getenv("DATABASE_URL")
-    redis_url = os.getenv("REDIS_URL") # Used by services
-
-    # Use run_id_str for logging until run_id (UUID) is confirmed valid
-    initial_log_extra = {"run_id": run_id_str or "UNKNOWN"}
-    logger.info(f"RUN_ID_STR: {run_id_str}", extra=initial_log_extra)
-    logger.info(f"RUNNABLE_TYPE: {runnable_type}", extra=initial_log_extra)
-    logger.info(f"RUNNABLE_ID: {runnable_id_str}", extra=initial_log_extra)
-    logger.info(f"DATABASE_URL: {'*' * 5 if db_url else 'Not Set'}", extra=initial_log_extra)
-    logger.info(f"REDIS_URL: {'*' * 5 if redis_url else 'Not Set'}", extra=initial_log_extra)
-
-    if not all([run_id_str, runnable_type, runnable_id_str, db_url]):
-        logger.error("FATAL: Missing required environment variables (RUN_ID, RUNNABLE_TYPE, RUNNABLE_ID, DATABASE_URL).", extra=initial_log_extra)
-        sys.exit(1)
-
-    if runnable_type not in ['agent', 'team']:
-        logger.error(f"FATAL: Invalid RUNNABLE_TYPE: {runnable_type}. Must be 'agent' or 'team'.", extra=initial_log_extra)
-        sys.exit(1)
+    runnable_type = os.getenv("RUNNABLE_TYPE")
+    input_data_json = os.getenv("INPUT_DATA_JSON", "{}") # Default to empty dict
 
     run_id: Optional[uuid.UUID] = None
+    redis_handler: Optional[RedisPubSubHandler] = None
     engine = None
-    error_message: Optional[str] = None
-    redis_handler: Optional[RedisPubSubHandler] = None # Keep track of handler instance
-    log_extra = initial_log_extra # Use initial extra dict until run_id is UUID
+    async_session_factory = None
+    final_status: RunStatus = RunStatus.FAILED # Default to FAILED
+    initial_log_extra = {"run_id": run_id_str or "UNKNOWN"}
+    log_extra = initial_log_extra # Will be updated once run_id is validated
 
     try:
-        # Validate and convert IDs early
-        try:
-            run_id = uuid.UUID(run_id_str)
-            runnable_id = uuid.UUID(runnable_id_str)
-            input_data = json.loads(input_data_str)
-            log_extra = {"run_id": run_id} # Update extra dict with UUID
-            logger.info("RUN_ID, RUNNABLE_ID, INPUT_DATA successfully parsed.", extra=log_extra)
-        except (ValueError, TypeError, json.JSONDecodeError) as e:
-             # Use initial_log_extra here as run_id might be invalid
-             logger.error(f"FATAL: Invalid RUN_ID, RUNNABLE_ID, or INPUT_DATA format. Error: {e}", extra=initial_log_extra)
-             sys.exit(1)
+        # --- Initial Validation and Setup ---
+        if not all([run_id_str, runnable_id_str, runnable_type]):
+            raise ValueError("Missing required environment variables: RUN_ID, RUNNABLE_ID, RUNNABLE_TYPE")
 
-        # --- Initialize Redis and Add Handler ---
-        try:
-            await redis_service.initialize_async()
-            logger.info("Redis connection initialized.", extra=log_extra)
-            # Create and add Redis Handler *after* successful initialization
-            redis_handler = RedisPubSubHandler(run_id=run_id)
-            logger.addHandler(redis_handler)
-            logger.info("RedisPubSubHandler added to logger.", extra=log_extra)
-        except Exception as redis_err:
-            logger.error(f"Failed to initialize Redis or add handler: {redis_err}", exc_info=True, extra=log_extra)
-            # Proceed without Redis PubSub logging
-            redis_handler = None # Ensure handler is None if init failed
-            pass
-        # --- End Redis Init ---
+        run_id = uuid.UUID(run_id_str)
+        runnable_id = uuid.UUID(runnable_id_str)
+        log_extra = {"run_id": str(run_id)} # Update log extra with validated UUID
+        logger.info(f"Processing Run ID: {run_id}", extra=log_extra)
 
-        # 2. Setup Database Connection
-        logger.info("Setting up database connection...", extra=log_extra)
-        try:
-            # Use NullPool for non-persistent connections like short-lived jobs
-            engine = create_async_engine(db_url, poolclass=NullPool)
-            session_maker = async_sessionmaker(bind=engine, expire_on_commit=False, class_=AsyncSession)
-            logger.info("Database engine and session maker created.", extra=log_extra)
-        except Exception as e:
-            logger.error(f"FATAL: Error creating database engine/session maker: {e}", extra=log_extra)
-            sys.exit(1) # Exit if DB setup fails
+        input_data = json.loads(input_data_json)
+        if not isinstance(input_data, dict):
+            # Agno run expects a dict input, often {"input": "user query"}
+            input_data = {"input": str(input_data)} # Basic wrapping if not dict
+            logger.warning(f"Input data was not a dictionary, wrapped as {{'input': ...}}", extra=log_extra)
 
-        async with session_maker() as session:
-            logger.info("Acquired DB session.", extra=log_extra)
-            # Fetch Run object
-            try:
-                result = await session.execute(select(RunORM).where(RunORM.id == run_id))
-                run = result.scalar_one_or_none()
-            except Exception as e:
-                logger.error(f"FATAL: Error fetching Run {run_id} from database: {e}", extra=log_extra)
-                sys.exit(1) # Exit if cannot fetch run record
+        if runnable_type not in ['agent', 'team']:
+            raise ValueError(f"Invalid RUNNABLE_TYPE: {runnable_type}. Must be 'agent' or 'team'.")
 
+        # --- Initialize Services & DB ---
+        # Initialize Redis (important for the handler)
+        await redis_service.initialize_async()
+        if not redis_service.client:
+             raise ConnectionError("Failed to initialize Redis connection for logging.")
+        logger.info("Redis connection initialized.", extra=log_extra)
+
+        # Create Redis Handler and add to logger
+        redis_handler = RedisPubSubHandler(run_id=run_id)
+        logger.addHandler(redis_handler)
+        logger.info("RedisPubSubHandler added to logger.", extra=log_extra)
+
+        # Initialize DB Engine and Session Factory
+        engine = create_db_engine(str(settings.DATABASE_URL))
+        async_session_factory = create_db_session_factory(engine)
+        logger.info("Database engine and session factory initialized.", extra=log_extra)
+
+        # Instantiate Services (they need settings)
+        agent_service = AgentService(app_settings=settings)
+        team_service = TeamService(app_settings=settings)
+        logger.info("AgentService and TeamService initialized.", extra=log_extra)
+
+        # --- Fetch Run and Update Status to RUNNING ---
+        async with async_session_factory() as session:
+            run = await session.get(RunORM, run_id)
             if not run:
-                logger.error(f"FATAL: Run {run_id} not found in database.", extra=log_extra)
-                sys.exit(1) # Exit if run record doesn't exist
+                raise LookupError(f"Run with ID {run_id} not found in the database.")
 
-            if run.status in [RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED]:
-                 logger.info(f"Run {run_id} already in terminal state: {run.status}. Exiting.", extra=log_extra)
-                 final_status = run.status
-                 sys.exit(0 if final_status == RunStatus.COMPLETED else 1) # Exit cleanly if already done
-
-            # 3. Update Run Status to RUNNING
-            logger.info(f"Updating Run {run_id} status to RUNNING in DB.", extra=log_extra)
             run.status = RunStatus.RUNNING
             run.started_at = datetime.utcnow()
             session.add(run)
-            try:
-                await session.commit()
-                logger.info(f"Run {run_id} status updated to RUNNING.", extra=log_extra)
-                await session.refresh(run)
-            except Exception as e:
-                 logger.error(f"FATAL: Error committing RUNNING status for Run {run_id}: {e}", extra=log_extra)
-                 try: await session.rollback()
-                 except Exception: pass
-                 sys.exit(1) # Exit if cannot update status to RUNNING
+            await session.commit()
+            logger.info("Run status updated to RUNNING in database.", extra=log_extra)
 
-            # --- Execution Block --- Within the session context ---
-            final_output: Optional[Dict] = None
-            try:
-                # 4. Instantiate Services
-                logger.info("Instantiating services...", extra=log_extra)
-                agent_service = AgentService(db=session)
-                team_service = None
-                if runnable_type == 'team':
-                    team_service = TeamService(db=session)
-                logger.info("Services instantiated.", extra=log_extra)
+        # --- Instantiate and Execute Agent/Team ---
+        agno_runnable: Optional[Union[AgnoAgent, AgnoTeam]] = None
+        final_output: Optional[Dict] = None # Initialize final_output
+        aggregated_response: Optional[Union[RunResponse, TeamRunResponse]] = None # To hold the last chunk
+        results_channel = f"run_results:{run_id_str}" # Define channel for result chunks
 
-                # 5. Create Agno Agent/Team Instance
-                logger.info(f"Creating Agno {runnable_type} instance for ID: {runnable_id}...", extra=log_extra)
+        try:
+            logger.info(f"Attempting to instantiate {runnable_type} with ID: {runnable_id}", extra=log_extra)
+            async with async_session_factory() as session: # Use a new session for service calls
                 if runnable_type == 'agent':
                     agno_runnable = await agent_service.create_agno_agent_instance(
                         agent_id=runnable_id,
-                        tool_registry=ToolInterfaceRegistry.get_instance() # Use singleton registry
+                        session=session,
+                        session_id=run_id # Pass run_id as session_id context
                     )
+                    logger.info(f"Agent {runnable_id} instantiated successfully.", extra=log_extra)
                 elif runnable_type == 'team':
-                     agno_runnable = await team_service.create_agno_team_instance(team_id=runnable_id)
+                    agno_runnable = await team_service.create_agno_team_instance(
+                        team_id=runnable_id,
+                        session=session,
+                        session_id=run_id # Pass run_id as session_id context
+                    )
+                    logger.info(f"Team {runnable_id} instantiated successfully.", extra=log_extra)
+
+            if not agno_runnable:
+                 # Should be caught by service exceptions below, but defensive check
+                 raise ValueError(f"Failed to instantiate {runnable_type} {runnable_id}. Instance is None.")
+
+            # Execute the run using the async stream
+            logger.info(f"Starting streaming run for {runnable_type} {runnable_id}...", extra=log_extra)
+
+            async for chunk in agno_runnable.arun(input=input_data, handlers=[redis_handler], stream=True):
+                # Process each chunk (e.g., log, potentially publish to another channel)
+                logger.debug(f"Received stream chunk: {type(chunk)}", extra=log_extra)
+                if isinstance(chunk, (RunResponse, TeamRunResponse)):
+                    aggregated_response = chunk # Store the latest complete response object
+
+                    # Publish the chunk to the results channel
+                    try:
+                        chunk_json = chunk.model_dump_json() # Use Pydantic v2 serialization
+                        await redis_service.publish(results_channel, chunk_json)
+                        logger.debug(f"Published chunk to {results_channel}", extra=log_extra)
+                    except AttributeError:
+                        # Fallback for older Pydantic or different object types
+                        try:
+                            chunk_dict = chunk.dict() # Pydantic v1
+                            chunk_json = json.dumps(chunk_dict)
+                            await redis_service.publish(results_channel, chunk_json)
+                            logger.debug(f"Published chunk (dict) to {results_channel}", extra=log_extra)
+                        except Exception as pub_err:
+                            logger.warning(f"Failed to serialize/publish chunk to Redis {results_channel}: {pub_err}", extra=log_extra)
+                    except Exception as pub_err:
+                        logger.warning(f"Failed to publish chunk to Redis {results_channel}: {pub_err}", extra=log_extra)
                 else:
-                    # This case should be caught by earlier checks, but belts and suspenders
-                    raise ServiceError(f"Invalid runnable_type '{runnable_type}' encountered during instantiation.")
+                    logger.warning(f"Received unexpected chunk type: {type(chunk)}", extra=log_extra)
 
-                if not agno_runnable:
-                     raise ServiceError(f"Failed to create Agno {runnable_type} instance.")
+        except (AgentCreationError, TeamCreationError, KnowledgeCreationError, StorageCreationError, ServiceError) as creation_err:
+            logger.error(f"Failed to instantiate {runnable_type} {runnable_id}: {creation_err}", exc_info=True, extra=log_extra)
+            final_status = RunStatus.FAILED
+            # Store error in output
+            final_output = {"error": f"Instantiation failed: {str(creation_err)}"}
+        except RunCancelledException as cancel_err:
+            logger.info(f"Run {run_id} was cancelled during execution: {cancel_err}", extra=log_extra)
+            final_status = RunStatus.CANCELLED
+            final_output = {"error": f"Run cancelled: {str(cancel_err)}"}
+        except Exception as run_err:
+            logger.error(f"Error during {runnable_type} {runnable_id} streaming execution: {run_err}", exc_info=True, extra=log_extra)
+            final_status = RunStatus.FAILED
+            final_output = {"error": f"Execution failed: {str(run_err)}"}
 
-                logger.info(f"Agno {runnable_type} instance created successfully.", extra=log_extra)
-
-
-                # 6. Execute Runnable
-                logger.info(f"Executing {runnable_type} run for ID: {run_id}...", extra=log_extra)
-                # Pass input_data directly to arun
-                # Note: Ensure input_data keys match expected input variables of the agent/team
-                final_output = await agno_runnable.arun(input=input_data)
-                logger.info(f"Execution finished for run ID: {run_id}. Raw output: {str(final_output)[:100]}...", extra=log_extra) # Log snippet
-
-                # 7. Set status to COMPLETED on success
-                final_status = RunStatus.COMPLETED
-                logger.info(f"Run {run_id} completed successfully.", extra=log_extra)
-
-            # Handle specific creation/execution errors
-            except (AgentCreationError, TeamCreationError, KnowledgeCreationError, StorageCreationError, ServiceError) as service_exc:
-                logger.error(f"Service error during setup or execution for run {run_id}: {service_exc}", extra=log_extra)
-                final_output = {"error": f"Service Error: {service_exc}"}
-                error_message = str(service_exc)
-                final_status = RunStatus.FAILED # Ensure failed status
-            except ValueError as val_err:
-                 logger.error(f"Value error (likely config issue) during setup/execution for run {run_id}: {val_err}", extra=log_extra)
-                 final_output = {"error": f"Configuration Error: {val_err}"}
-                 error_message = str(val_err)
-                 final_status = RunStatus.FAILED # Ensure failed status
-            except Exception as exec_e:
-                # Catchall for other unexpected errors during execution
-                logger.error(f"Unexpected error during execution for run {run_id}: {exec_e}", exc_info=True, extra=log_extra)
-                final_output = {"error": f"Unexpected Execution Error: {exec_e}"}
-                error_message = traceback.format_exc()
-                final_status = RunStatus.FAILED # Ensure failed status
-
-            # --- Update Run Record (Finally within session) ---
-            # This runs even if execution block failed, to record the FAILED status
+        # --- Final Status Update ---
+        async with async_session_factory() as session:
+            run = await session.get(RunORM, run_id)
             if run:
                 logger.info(f"Finalizing Run {run_id} with status {final_status}.", extra=log_extra)
                 run.status = final_status
-                run.error_message = error_message # Store error message if any
-                # Store output - Ensure it's JSON serializable
-                try:
-                    if final_output is None: final_output = {}
-                    json.dumps(final_output) # Test serialization
-                    run.output_data = final_output
-                except (TypeError, OverflowError) as json_err:
-                    logger.warning(f"Warning: Output for run {run_id} is not JSON serializable: {json_err}. Storing as string.", extra=log_extra)
-                    run.output_data = {"error": "Output not JSON serializable", "details": str(final_output)}
-                except Exception as ser_err:
-                     logger.warning(f"Warning: Unexpected error checking output serializability for run {run_id}: {ser_err}. Storing as string.", extra=log_extra)
-                     run.output_data = {"error": "Error serializing output", "details": str(final_output)}
-
-                if not run.started_at: run.started_at = datetime.utcnow() # Fallback if status update failed earlier
                 run.ended_at = datetime.utcnow()
+
+                # Store the aggregated output
+                if final_output is not None:
+                    try:
+                        # Attempt to store as JSON
+                        run.output_data = json.loads(json.dumps(final_output)) # Ensure it's valid JSON structure
+                    except (TypeError, json.JSONDecodeError) as json_err:
+                        logger.warning(f"Output for run {run_id} is not JSON serializable: {json_err}. Storing as error string.", extra=log_extra)
+                        run.output_data = {"error": "Output not JSON serializable", "details": str(final_output)}
+                        run.status = RunStatus.FAILED # If output failed to serialize, mark run as failed
+                    except Exception as ser_err:
+                        logger.error(f"Unexpected error serializing output for run {run_id}: {ser_err}", exc_info=True, extra=log_extra)
+                        run.output_data = {"error": "Unexpected error serializing output", "details": str(final_output)}
+                        run.status = RunStatus.FAILED
+                else:
+                     run.output_data = {} # Store empty dict if final_output was None
+
+                # Store error message separately if status is FAILED or CANCELLED
+                if final_status in [RunStatus.FAILED, RunStatus.CANCELLED] and isinstance(final_output, dict):
+                     run.error_message = final_output.get("error", "Unknown error")
+                elif final_status == RunStatus.COMPLETED:
+                     run.error_message = None # Clear any previous error message on success
+
                 session.add(run)
                 try:
                     await session.commit()
-                    logger.info("Final status committed to DB.", extra=log_extra)
-                except Exception as final_db_err:
-                    # Log error, but don't necessarily exit the whole script, let finally block handle exit code
-                    logger.error(f"Error committing final status for run {run_id}: {final_db_err}", extra=log_extra)
-                    final_status = RunStatus.FAILED # Mark as failed if final commit fails
-            else:
-                # This shouldn't happen if initial fetch worked, but log just in case
-                logger.error("CRITICAL: Cannot finalize run - Run object lost within session scope?", extra=log_extra)
-                final_status = RunStatus.FAILED
+                    logger.info(f"Final status {final_status} and output committed to DB for Run {run_id}.", extra=log_extra)
+                except Exception as commit_err:
+                    logger.error(f"Error committing final status and output for Run {run_id}: {commit_err}", exc_info=True, extra=log_extra)
 
     except (ValueError, TypeError, json.JSONDecodeError) as setup_parse_err:
         # Catch errors during initial parsing before run_id is reliable UUID

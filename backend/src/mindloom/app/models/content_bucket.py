@@ -8,9 +8,14 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 from pydantic import BaseModel, Field
 
 from mindloom.db.base_class import Base
-# Forward reference for relationship
+# Import association tables
+from mindloom.app.models.agent_content_bucket import agent_content_bucket_association
+from mindloom.app.models.team_content_bucket import team_content_bucket_association
+
+# Forward reference for relationship type hinting (use strings in relationship definitions)
 # from mindloom.app.models.file_metadata import FileMetadataORM
 # from mindloom.app.models.agent import AgentORM
+# from mindloom.app.models.team import TeamORM
 
 # --- Pydantic Schemas ---
 
@@ -42,7 +47,7 @@ class ContentBucket(ContentBucketBase):
     # agents: List['Agent'] = [] # Add if Agent schema is defined and needed here
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # --- SQLAlchemy ORM Model ---
 
@@ -67,7 +72,15 @@ class ContentBucketORM(Base):
     # Relationship: Many-to-Many with Agents
     agents = relationship(
         "AgentORM",
-        secondary="agent_content_bucket_association", # Use table name string
+        secondary=agent_content_bucket_association, # Use imported table object
+        back_populates="content_buckets",
+        lazy="selectin"
+    )
+
+    # Relationship: Many-to-Many with Teams
+    teams = relationship(
+        "TeamORM",
+        secondary=team_content_bucket_association, # Use imported table object
         back_populates="content_buckets",
         lazy="selectin"
     )

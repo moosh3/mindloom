@@ -35,6 +35,7 @@ def create_agent(debug_mode: bool = False) -> Agent:
         add_history_to_messages=True,
         num_history_reponses=5,
         read_chat_history=True,
+        show_tool_calls=True,
         debug_mode=debug_mode,
         storage=PostgresAgentStorage(
             db_url=os.getenv("DATABASE_URL"),

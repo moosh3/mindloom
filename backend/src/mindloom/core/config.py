@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
     REFRESH_TOKEN_EXPIRE_MINUTES: int = Field(60 * 24 * 7, env="REFRESH_TOKEN_EXPIRE_MINUTES")
 
+    # AWS S3 Configuration (Optional, only needed if S3 features are used)
+    AWS_ACCESS_KEY_ID: Optional[str] = Field(None, env="AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY: Optional[str] = Field(None, env="AWS_SECRET_ACCESS_KEY")
+    AWS_REGION: Optional[str] = Field(None, env="AWS_REGION")
+    S3_BUCKET_NAME: Optional[str] = Field(None, env="S3_BUCKET_NAME")
+
     # Allow loading from .env file if needed (requires python-dotenv)
     class Config:
         env_file = ".env"

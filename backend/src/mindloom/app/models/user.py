@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Optional, Set
+from typing import Optional, Set, ClassVar
 
 from pydantic import BaseModel, EmailStr, Field, validator
 from sqlalchemy import Boolean, Column, DateTime, String
@@ -35,7 +35,7 @@ class UserORM(Base):
         "TeamORM",
         secondary=team_user_association,
         back_populates="members",
-        lazy="subquery"
+        lazy="select"
     )
     runs = relationship("RunORM", back_populates="user", cascade="all, delete-orphan") # Relationship to runs initiated by user
 
@@ -53,7 +53,7 @@ class UserBase(BaseModel):
     is_superuser: Optional[bool] = False
     role: str = "user" # Added role
 
-    _allowed_roles: Set[str] = {"user", "admin"} # Define allowed roles
+    _allowed_roles: ClassVar[Set[str]] = {"user", "admin"} # Define allowed roles
 
     @validator('full_name', 'department')
     def field_must_not_be_empty_or_whitespace(cls, v):

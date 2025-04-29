@@ -14,7 +14,7 @@ dependencies = [
     "pydantic", # Added pydantic settings
     "pydantic[email]", # Added email validation
     "greenlet", # Added greenlet for async support
-    "agno>=1.4.2", 
+    "agno>=1.4.2",
     "openai", # Required by agno for OpenAI integrations
     "azure-ai-inference", # Required by agno for Azure AI models
     "aiohttp", # Required by azure-ai-inference
@@ -25,6 +25,7 @@ dependencies = [
     "redis", # Required for Redis memory storage
     "croniter", # Required for cron schedule validation
     "kubernetes", # Required for interacting with K8s API
+    "python-dotenv>=1.1.0",
 ]
 
 [build-system]
