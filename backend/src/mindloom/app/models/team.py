@@ -105,7 +105,7 @@ class TeamRunOutput(BaseModel):
 
 from sqlalchemy import Column, String, Text, Table, ForeignKey, DateTime, JSON, Boolean, Integer, and_
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy.orm import relationship, Mapped, mapped_column, foreign
 from mindloom.db.base_class import Base
 from datetime import datetime
 import uuid
@@ -152,7 +152,7 @@ class TeamORM(Base):
     runs = relationship(
         RunORM, # Use class directly
         primaryjoin=lambda: and_(
-            RunORM.runnable_id == TeamORM.id,
+            foreign(RunORM.runnable_id) == TeamORM.id,
             RunORM.runnable_type == 'team'
         ),
         # Use backref as RunORM doesn't have a dedicated 'team' relationship
