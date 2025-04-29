@@ -3,6 +3,9 @@ from typing import Optional, List, Dict, Any, Set
 import uuid
 from datetime import datetime
 
+# Import ContentBucket schema for relationship representation
+from mindloom.app.models.content_bucket import ContentBucket
+
 class TeamBase(BaseModel):
     """Base model for Team properties."""
     name: str = Field(..., min_length=1, max_length=100, description="Name of the team")
@@ -16,6 +19,9 @@ class TeamBase(BaseModel):
     enable_memory: bool = Field(False, description="Enable conversation history memory for the team")
     history_length: int = Field(5, description="Number of past interactions to include in history", ge=1)
     agent_ids: List[uuid.UUID] = Field(default_factory=list, description="List of agent IDs belonging to the team")
+
+    # Add content_bucket_ids for association management
+    content_bucket_ids: List[uuid.UUID] = Field(default_factory=list, description="List of content bucket IDs associated with the team")
 
     _allowed_modes: Set[str] = {"coordinate", "collaborate"}
 
@@ -60,6 +66,7 @@ class TeamCreate(TeamBase):
     agent_ids: Optional[List[uuid.UUID]] = Field(None, description="List of initial agent IDs to add to the team")
     enable_memory: Optional[bool] = None
     history_length: Optional[int] = Field(None, ge=1)
+    content_bucket_ids: Optional[List[uuid.UUID]] = None
 
 class TeamUpdate(BaseModel):
     """Model for updating an existing team (input)."""
@@ -74,12 +81,16 @@ class TeamUpdate(BaseModel):
     enable_memory: Optional[bool] = None
     history_length: Optional[int] = Field(None, ge=1)
     agent_ids: Optional[List[uuid.UUID]] = None
+    content_bucket_ids: Optional[List[uuid.UUID]] = None
 
 class Team(TeamBase):
     """Model for representing a team (output), including its ID."""
     id: uuid.UUID = Field(..., description="Unique identifier for the team")
     created_at: datetime
     updated_at: Optional[datetime] = None
+
+    # Add content_buckets field for output
+    content_buckets: List[ContentBucket] = []
 
     class Config:
         orm_mode = True
@@ -105,12 +116,13 @@ class TeamRunOutput(BaseModel):
 
 from sqlalchemy import Column, String, Text, Table, ForeignKey, DateTime, JSON, Boolean, Integer, and_
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy.orm import relationship, Mapped, mapped_column, foreign
 from mindloom.db.base_class import Base
 from datetime import datetime
 import uuid
 
 from mindloom.db.association_tables import team_user_association, team_agent_association
+from mindloom.app.models.team_content_bucket import team_content_bucket_association
 from mindloom.app.models.user import UserORM
 from mindloom.app.models.run import RunORM
 
@@ -149,17 +161,26 @@ class TeamORM(Base):
         lazy="selectin"
     )
 
+    # Relationship: Many-to-Many with Content Buckets
+    content_buckets = relationship(
+        "ContentBucketORM",
+        secondary=team_content_bucket_association,
+        back_populates="teams", # Matches relationship name in ContentBucketORM
+        lazy="selectin"
+    )
+
     # One-to-many relationship with RunORM - specify primaryjoin for polymorphic association
     runs = relationship(
         RunORM, # Use class directly
         primaryjoin=lambda: and_(
-            RunORM.runnable_id == TeamORM.id,
+            foreign(RunORM.runnable_id) == TeamORM.id,
             RunORM.runnable_type == 'team'
         ),
         # Use backref as RunORM doesn't have a dedicated 'team' relationship
         backref="team", # Creates team attribute on RunORM instances
         cascade="all, delete-orphan",
-        lazy="selectin"
+        lazy="selectin",
+        overlaps="agent,runs"
     )
 
     def __repr__(self):

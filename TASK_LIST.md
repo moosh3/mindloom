@@ -36,21 +36,21 @@
 - [x] Implement Agent CRUD endpoints
 - [x] Implement Team CRUD endpoints
 - [x] Create Run management endpoints
-- [ ] Add content bucket management API
+- [x] Add content bucket management API
 - [ ] Create streaming response endpoints
 - [x] Add data validation for all API requests
-- [ ] Implement error handling middleware
+- [x] Implement error handling middleware
 - [x] Create OpenAPI documentation
 
 ### Service Layer & Agent/Team Execution
-- [ ] AgentService: Refine dynamic instantiation of Agno Agent components (Model, Tools, Knowledge, Storage) based on DB config.
-- [ ] TeamService: Refine dynamic instantiation of Agno Team (Leader Model, Member Agents via AgentService, Knowledge, Storage).
-- [ ] Tool Handling: Enhance `AgentService._create_tools` for robust mapping and configuration of available tools.
-- [ ] Knowledge Base: Finalize knowledge base creation (`AgentService._create_knowledge`) including path resolution/content loading.
-- [ ] Storage: Solidify agent/team run storage configuration (`AgentService._create_storage`).
-- [ ] Run Execution: Implement core logic for executing agent/team runs (e.g., in `runs.py` endpoint or a dedicated run manager) using AgentService and TeamService.
+- [x] AgentService: Refine dynamic instantiation of Agno Agent components (Model, Tools, Knowledge, Storage) based on DB config.
+- [x] TeamService: Refine dynamic instantiation of Agno Team (Leader Model, Member Agents via AgentService, Knowledge, Storage).
+- [x] Tool Handling: Enhance `AgentService._create_tools` for robust mapping and configuration of available tools.
+- [x] Knowledge Base: Finalize knowledge base creation (`AgentService._create_knowledge`) including path resolution/content loading.
+- [x] Storage: Solidify agent/team run storage configuration (`AgentService._create_storage`).
+- [x] Run Execution: Implement core logic for executing agent/team runs (e.g., in `runs.py` endpoint or a dedicated run manager) using AgentService and TeamService.
 - [x] Run Execution: Backend logic for `/run` endpoint implemented (incl. error handling).
-- [ ] Streaming: Add response streaming capabilities to the run execution logic and API endpoints.
+- [x] Streaming: Add response streaming capabilities to the run execution logic and API endpoints.
 - [x] Streaming: Backend API endpoint (`/run`) now streams responses (`application/x-ndjson`). Frontend implementation needed.
 - [ ] Context/Memory: Ensure Agno context window and memory parameters (history, etc.) are correctly configured via services.
 - [x] Error Handling: Implement error handling and status updates within the run execution logic (backend done).

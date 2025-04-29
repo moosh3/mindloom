@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
-from typing import List, Dict, Optional, Any
+from fastapi.responses import StreamingResponse
+from typing import List, Dict, Optional, Any, AsyncGenerator
 import uuid
 from datetime import datetime
 import asyncio
@@ -43,14 +44,80 @@ router = APIRouter(dependencies=[Depends(get_current_user)])
 # Get a logger instance (can be configured further in main app setup)
 logger = logging.getLogger(__name__)
 
-@router.post("/", response_model=RunSchema, status_code=status.HTTP_202_ACCEPTED, tags=["Runs"])
+async def _stream_run_results(run_id: str) -> AsyncGenerator[str, None]:
+    """Async generator to subscribe to Redis and yield SSE messages for a run."""
+    channel_name = f"run_results:{run_id}"
+    pubsub = None
+    try:
+        # Use the existing redis_service for connection
+        pubsub = redis_service.redis.pubsub()
+        await pubsub.subscribe(channel_name)
+        logger.info(f"Subscribed to Redis channel: {channel_name}")
+
+        while True:
+            # Listen for messages with a timeout to allow checking connection
+            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+            if message is not None and message["type"] == "message":
+                try:
+                    # Assuming message['data'] is the JSON string from run_executor
+                    data_str = message['data'] # Already decoded by redis_service pool
+                    # Format as SSE message
+                    sse_message = f"data: {data_str}\n\n"
+                    yield sse_message
+
+                    # Check if this is the end message
+                    try:
+                        data_obj = json.loads(data_str)
+                        if isinstance(data_obj, dict) and data_obj.get("event") == "end":
+                            logger.info(f"Received end event for {channel_name}, closing stream.")
+                            break # Exit the loop, generator finishes
+                    except json.JSONDecodeError:
+                        pass # Ignore if data isn't valid JSON for the 'end' check
+
+                except Exception as e:
+                    logger.error(f"Error processing message from {channel_name}: {e}", exc_info=True)
+                    # Optional: yield an error event to the client
+                    yield f"event: error\ndata: {{\"error\": \"Error processing stream message\"}}\n\n"
+
+            # Optional: Add a small sleep if no message to prevent tight loop on timeout
+            elif message is None:
+                 await asyncio.sleep(0.1)
+
+    except asyncio.CancelledError:
+        logger.info(f"Run result streaming cancelled for {channel_name}.")
+    except Exception as e:
+        logger.error(f"Error during Redis subscription/listen for {channel_name}: {e}", exc_info=True)
+        # Optional: yield an error event to the client
+        try:
+            yield f"event: error\ndata: {{\"error\": \"Stream disconnected due to server error\"}}\n\n"
+        except Exception:
+            pass # Ignore if yield fails after error
+    finally:
+        logger.info(f"Cleaning up stream for {channel_name}.")
+        if pubsub:
+            try:
+                await pubsub.unsubscribe(channel_name)
+                await pubsub.close()
+                logger.info(f"Unsubscribed and closed pubsub for {channel_name}")
+            except Exception as unsub_err:
+                logger.error(f"Error unsubscribing/closing pubsub for {channel_name}: {unsub_err}")
+
+
+@router.post(
+    "/", 
+    status_code=status.HTTP_200_OK, 
+    tags=["Runs"],
+    summary="Start a run and stream results (SSE)",
+    response_description="A stream of Server-Sent Events containing run results."
+)
 async def create_run(
     run_in: RunCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db_session) # Inject DB session
-) -> Run:
+) -> StreamingResponse:
     """
     Start a new run for an agent or team by launching a Kubernetes Job.
+    Returns a Server-Sent Events stream with run results.
     """
     # Basic validation (can be enhanced later)
     if run_in.runnable_type not in ['agent', 'team']:
@@ -152,8 +219,8 @@ async def create_run(
     # 3. Create the Kubernetes Job
     try:
         print(f"Creating Kubernetes Job '{job_name}' in namespace '{namespace}'...")
-        api_response = K8S_BATCH_V1_API.create_namespaced_job(body=job, namespace=namespace)
-        print(f"Kubernetes Job created successfully. Job status: {api_response.status}")
+        job_response = K8S_BATCH_V1_API.create_namespaced_job(body=job, namespace=namespace)
+        print(f"Kubernetes Job created successfully. Job status: {job_response.status}")
     except client.ApiException as e:
         print(f"Error creating Kubernetes Job: {e.status} - {e.reason}")
         print(f"Body: {e.body}")
@@ -193,9 +260,8 @@ async def create_run(
          )
 
 
-    # Return the initial Run object (status is PENDING)
-    # Convert ORM object to Pydantic schema for response
-    return RunSchema.model_validate(db_run)
+    # Return StreamingResponse
+    return StreamingResponse(_stream_run_results(str(run_id)), media_type="text/event-stream")
 
 
 @router.get("/", response_model=List[RunSchema], tags=["Runs"])

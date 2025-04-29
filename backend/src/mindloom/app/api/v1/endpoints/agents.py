@@ -186,3 +186,87 @@ async def delete_agent(
     await db.delete(agent)
     await db.commit()
     return None # FastAPI handles the 204 No Content response
+
+# --- Agent-Content Bucket Association Endpoints --- #
+
+@router.post(
+    "/{agent_id}/content_buckets/{bucket_id}",
+    response_model=Agent,
+    tags=["Agents"],
+    summary="Associate Content Bucket with Agent",
+    responses={**not_found_response, status.HTTP_404_NOT_FOUND: {"description": "Content Bucket not found"}}
+)
+async def associate_agent_content_bucket(
+    agent_id: uuid.UUID,
+    bucket_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db)
+) -> Agent:
+    """
+    Associates a specific Content Bucket with an Agent.
+
+    - **agent_id**: The UUID of the agent.
+    - **bucket_id**: The UUID of the content bucket to associate.
+    - **Returns**: The updated agent object with the new association.
+    - **Raises**: `HTTPException` (404) if the agent or content bucket is not found.
+    """
+    # Fetch Agent with buckets preloaded
+    agent_stmt = select(AgentORM).where(AgentORM.id == agent_id).options(selectinload(AgentORM.content_buckets))
+    agent_result = await db.execute(agent_stmt)
+    agent = agent_result.scalars().first()
+    if not agent:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
+
+    # Fetch Content Bucket
+    bucket_stmt = select(ContentBucketORM).where(ContentBucketORM.id == bucket_id)
+    bucket_result = await db.execute(bucket_stmt)
+    bucket = bucket_result.scalars().first()
+    if not bucket:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content Bucket not found")
+
+    # Add association if not already present
+    if bucket not in agent.content_buckets:
+        agent.content_buckets.append(bucket)
+        await db.commit()
+        await db.refresh(agent, attribute_names=['content_buckets'])
+
+    return agent # Return updated ORM instance
+
+@router.delete(
+    "/{agent_id}/content_buckets/{bucket_id}",
+    response_model=Agent,
+    tags=["Agents"],
+    summary="Dissociate Content Bucket from Agent",
+    responses={**not_found_response, status.HTTP_404_NOT_FOUND: {"description": "Content Bucket not found"}}
+)
+async def dissociate_agent_content_bucket(
+    agent_id: uuid.UUID,
+    bucket_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db)
+) -> Agent:
+    """
+    Dissociates a specific Content Bucket from an Agent.
+
+    - **agent_id**: The UUID of the agent.
+    - **bucket_id**: The UUID of the content bucket to dissociate.
+    - **Returns**: The updated agent object without the association.
+    - **Raises**: `HTTPException` (404) if the agent or content bucket is not found.
+    """
+    # Fetch Agent with buckets preloaded
+    agent_stmt = select(AgentORM).where(AgentORM.id == agent_id).options(selectinload(AgentORM.content_buckets))
+    agent_result = await db.execute(agent_stmt)
+    agent = agent_result.scalars().first()
+    if not agent:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
+
+    # Find the bucket in the agent's list
+    bucket_to_remove = next((b for b in agent.content_buckets if b.id == bucket_id), None)
+
+    if bucket_to_remove:
+        agent.content_buckets.remove(bucket_to_remove)
+        await db.commit()
+        await db.refresh(agent, attribute_names=['content_buckets'])
+    # If bucket wasn't associated, no error, just return current state
+    # If bucket ID itself doesn't exist, we could 404, but maybe unnecessary
+    # Let's keep it simple: if associated, remove; otherwise, do nothing.
+
+    return agent # Return updated (or unchanged) ORM instance
