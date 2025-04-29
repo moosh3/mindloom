@@ -2,6 +2,9 @@ import os
 import sys
 from logging.config import fileConfig
 import asyncio
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config

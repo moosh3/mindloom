@@ -1,18 +1,51 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from typing import Optional, List, Dict, Any
 import uuid
 from datetime import datetime
+from enum import Enum
+from croniter import croniter
+
+class AgentStatus(str, Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    ARCHIVED = "archived"
+
+class ToolConfig(BaseModel):
+    name: str = Field(..., description="The name of the tool to use")
+    config: Optional[Dict[str, Any]] = Field(None, description="Optional configuration parameters for the tool")
 
 class AgentBase(BaseModel):
     """Base model for Agent properties."""
     name: str = Field(..., min_length=1, max_length=100, description="Name of the agent")
-    description: Optional[str] = Field(None, max_length=500, description="Optional description for the agent")
-    model_provider: str = Field(..., description="LLM provider (e.g., 'azure', 'openai')")
-    model_name: str = Field(..., description="Specific model name (e.g., 'gpt-4', 'gpt-3.5-turbo')")
-    temperature: float = Field(0.7, ge=0.0, le=2.0, description="Model temperature setting")
-    # Placeholder for more complex fields
-    tools: List[str] = Field(default_factory=list, description="List of tools the agent can use")
-    # content_bucket_ids: List[uuid.UUID] = Field(default_factory=list)
+    description: Optional[str] = Field(None, description="Description of the agent's purpose")
+    instructions: Optional[str] = Field(None, description="Detailed instructions or system prompt for the agent")
+    llm_config: Optional[Dict[str, Any]] = Field(None, description="JSON configuration for the language model (e.g., model_id, provider, temperature, api_key_env_var)")
+    tools: Optional[List[ToolConfig]] = Field(None, description="List of tools the agent can use, with optional configurations")
+    knowledge_config: Optional[Dict[str, Any]] = Field(None, description="JSON configuration for the knowledge base/RAG setup")
+    storage_config: Optional[Dict[str, Any]] = Field(None, description="Optional JSON configuration for agent-level storage/memory")
+    agent_config: Optional[Dict[str, Any]] = Field(None, description="Additional JSON configuration for Agno Agent parameters")
+    content_bucket_ids: Optional[List[uuid.UUID]] = Field(None, description="List of content bucket IDs linked to this agent")
+    owner_id: Optional[uuid.UUID] = Field(None, description="ID of the user who owns the agent")
+
+    @validator('name')
+    def name_must_not_be_empty(cls, v):
+        if isinstance(v, str):
+            stripped = v.strip()
+            if not stripped:
+                raise ValueError('name cannot be empty or just whitespace')
+            return stripped
+        return v
+
+    @validator('llm_config')
+    def llm_config_must_contain_required_keys(cls, v):
+        if v is not None:
+            if not isinstance(v, dict):
+                raise ValueError('llm_config must be a dictionary')
+            required_keys = {'provider', 'model_id'}
+            missing_keys = required_keys - v.keys()
+            if missing_keys:
+                raise ValueError(f'llm_config is missing required keys: {missing_keys}')
+        return v
 
 class AgentCreate(AgentBase):
     """Model for creating a new agent (input)."""
@@ -20,27 +53,36 @@ class AgentCreate(AgentBase):
 
 class AgentUpdate(AgentBase):
     """Model for updating an existing agent (input)."""
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    model_provider: Optional[str] = None
-    model_name: Optional[str] = None
-    temperature: Optional[float] = Field(None, ge=0.0, le=2.0)
-    tools: Optional[List[str]] = None
+    name: Optional[str] = Field(None, min_length=1, max_length=100, description="Name of the agent")
+    description: Optional[str] = None
+    instructions: Optional[str] = None
+    llm_config: Optional[Dict[str, Any]] = None
+    tools: Optional[List[ToolConfig]] = None
+    knowledge_config: Optional[Dict[str, Any]] = None
+    storage_config: Optional[Dict[str, Any]] = None
+    agent_config: Optional[Dict[str, Any]] = None
+    content_bucket_ids: Optional[List[uuid.UUID]] = None
+    owner_id: Optional[uuid.UUID] = None
 
 class Agent(AgentBase):
     """Model for representing an agent (output), including its ID."""
-    id: uuid.UUID = Field(..., description="Unique identifier for the agent")
+    id: uuid.UUID = Field(..., description="Unique ID of the agent")
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    # content_buckets: Optional[List['ContentBucket']] = [] # Requires ContentBucket schema import
 
     class Config:
-        from_attributes = True # Pydantic v2 uses this instead of orm_mode
+        orm_mode = True
 
 # --- SQLAlchemy ORM Model --- #
 
-from sqlalchemy import Column, String, Float, ForeignKey, Text, JSON, Boolean, DateTime
+from sqlalchemy import Column, String, Text, ForeignKey, JSON, Boolean, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from mindloom.db.base_class import Base
-from mindloom.db.association_tables import team_agent_association # Import association table
+from mindloom.db.association_tables import team_agent_association
+from mindloom.app.models.agent_content_bucket import agent_content_bucket_association
 
 class AgentORM(Base):
     """Database model for agents."""
@@ -49,36 +91,38 @@ class AgentORM(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
-    model_provider: Mapped[str] = mapped_column(String(50), nullable=False)
-    model_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    temperature: Mapped[float] = mapped_column(Float, default=0.7)
-    tools: Mapped[list[str] | None] = mapped_column(JSON) # Store list of tools as JSON
+    instructions: Mapped[str | None] = mapped_column(Text)
+    llm_config: Mapped[dict | None] = mapped_column(JSON)
+    tools: Mapped[list[dict] | None] = mapped_column(JSON)
+    knowledge_config: Mapped[dict | None] = mapped_column(JSON)
+    storage_config: Mapped[dict | None] = mapped_column(JSON)
+    agent_config: Mapped[dict | None] = mapped_column(JSON)
 
-    # Foreign Key to User table
     owner_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
 
-    # Relationship (optional, useful for ORM access)
-    owner = relationship("User", back_populates="agents", lazy="selectin") # Adjust back_populates later if needed
+    owner = relationship("User", back_populates="agents", lazy="selectin")
 
-    # Relationships to other potential models (e.g., Runs, ContentBuckets)
-    runs = relationship("RunORM", back_populates="agent", cascade="all, delete-orphan") # Relationship to runs performed by this agent
+    runs = relationship("RunORM", back_populates="agent", cascade="all, delete-orphan")
     schedules = relationship("AgentScheduleORM", back_populates="agent", cascade="all, delete-orphan")
     variables = relationship("AgentVariableORM", back_populates="agent", cascade="all, delete-orphan", lazy="selectin")
-    # Relationship: Many-to-Many with Teams
     teams = relationship(
         "TeamORM",
         secondary=team_agent_association,
-        back_populates="agents", # Corresponds to 'agents' in TeamORM
+        back_populates="agents",
+        lazy="selectin"
+    )
+    content_buckets = relationship(
+        "ContentBucketORM",
+        secondary=agent_content_bucket_association,
+        back_populates="agents",
         lazy="selectin"
     )
 
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
     def __repr__(self):
         return f"<Agent(id={self.id}, name='{self.name}')>"
-
-# Add back-population to User model if needed
-# In user.py:
-# agents = relationship("Agent", back_populates="owner")
-
 
 # --- Agent Schedule Models --- #
 
@@ -88,6 +132,14 @@ class AgentScheduleBase(BaseModel):
     cron_schedule: str = Field(..., description="Cron expression for the schedule (e.g., '0 9 * * 1-5')")
     input_variables: Optional[Dict[str, Any]] = Field(None, description="Default input variables for scheduled runs")
     is_enabled: bool = Field(True, description="Whether the schedule is currently active")
+
+    @validator('cron_schedule')
+    def validate_cron_schedule(cls, v):
+        try:
+            croniter(v)
+        except ValueError as e:
+            raise ValueError(f"Invalid cron expression: {e}")
+        return v
 
 class AgentScheduleCreate(AgentScheduleBase):
     """Model for creating a new agent schedule."""
@@ -107,7 +159,7 @@ class AgentSchedule(AgentScheduleBase):
     last_run_at: Optional[datetime] = Field(None, description="Timestamp of the last run triggered by this schedule")
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # --- SQLAlchemy ORM Model for Agent Schedule --- #
 
@@ -123,10 +175,8 @@ class AgentScheduleORM(Base):
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime)
     input_variables: Mapped[dict | None] = mapped_column(JSON)
 
-    # Foreign Key to Agent
     agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id"), index=True)
 
-    # Relationship to Agent
     agent = relationship("AgentORM", back_populates="schedules", lazy="selectin")
 
     def __repr__(self):
@@ -143,6 +193,16 @@ class AgentVariableBase(BaseModel):
     description: Optional[str] = Field(None, max_length=500, description="Optional description for the variable")
     is_secret: bool = Field(False, description="Whether this variable should be treated as a secret")
 
+    @validator('key')
+    def key_must_not_be_empty(cls, v):
+        if isinstance(v, str):
+            stripped = v.strip()
+            if not stripped:
+                raise ValueError('key cannot be empty or just whitespace')
+            # Optional: Check for invalid characters if needed
+            return stripped # Return the stripped key
+        return v
+
 class AgentVariableCreate(AgentVariableBase):
     """Model for creating a new agent variable."""
     pass
@@ -151,7 +211,7 @@ class AgentVariableUpdate(BaseModel):
     """Model for updating an agent variable. Only value and description can be updated."""
     value: Optional[Any] = None
     description: Optional[str] = None
-    is_secret: Optional[bool] = None # Allow updating secrecy flag
+    is_secret: Optional[bool] = None
 
 class AgentVariable(AgentVariableBase):
     """Model for representing an agent variable, including its ID."""
@@ -160,11 +220,11 @@ class AgentVariable(AgentVariableBase):
     updated_at: datetime = Field(..., description="Timestamp when the variable was last updated")
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # --- SQLAlchemy ORM Model for Agent Variable --- #
 
-from sqlalchemy import UniqueConstraint # Import UniqueConstraint
+from sqlalchemy import UniqueConstraint
 
 class AgentVariableORM(Base):
     """Database model for agent variables."""
@@ -173,18 +233,14 @@ class AgentVariableORM(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     key: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    # Store potentially sensitive values in a way that can be encrypted/decrypted later if needed
-    # For now, using JSON, but consider specific encryption field types if security demands it
     value: Mapped[Any] = mapped_column(JSON, nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     is_secret: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
-    # Foreign Key to Agent
     agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id"), nullable=False)
 
-    # Relationship to Agent
     agent = relationship("AgentORM", back_populates="variables")
 
     def __repr__(self):

@@ -1,4 +1,5 @@
 import os
+import secrets
 from pydantic_settings import BaseSettings
 from pydantic import PostgresDsn, Field
 from typing import Optional
@@ -6,9 +7,19 @@ from typing import Optional
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
+    # API Base Path
+    API_V1_STR: str = Field("/api/v1", env="API_V1_STR")
+
     # Database
     # Example: postgresql+asyncpg://user:password@host:port/dbname
     DATABASE_URL: Optional[PostgresDsn] = Field(None, env="DATABASE_URL")
+
+    # JWT Settings
+    # Generate a default secret key for development, ensure it's overridden in production
+    SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32), env="SECRET_KEY")
+    ALGORITHM: str = Field("HS256", env="JWT_ALGORITHM")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
+    REFRESH_TOKEN_EXPIRE_MINUTES: int = Field(60 * 24 * 7, env="REFRESH_TOKEN_EXPIRE_MINUTES")
 
     # Allow loading from .env file if needed (requires python-dotenv)
     class Config:

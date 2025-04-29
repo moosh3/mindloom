@@ -7,4 +7,15 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  server: {
+    proxy: {
+      // Proxy /api/v1 requests to the backend server
+      '/api/v1': {
+        target: 'http://localhost:8000', // Your backend server address
+        changeOrigin: true, // Needed for virtual hosted sites
+        // You might not need rewrite if your backend already expects /api/v1
+        // rewrite: (path) => path.replace(/^\/api\/v1/, '')
+      }
+    }
+  }
 });

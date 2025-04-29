@@ -79,30 +79,6 @@ const useAuthStore = create<AuthState>((set) => ({
 }));
 ```
 
-## Contributing Guidelines
-
-1. **Branch Naming**
-   - Feature: `feature/description`
-   - Bug fix: `fix/description`
-   - Documentation: `docs/description`
-
-2. **Commit Messages**
-   - Use present tense
-   - Be descriptive
-   - Reference issues
-
-   ```
-   feat: add team run configuration
-   fix: resolve agent selection in teams
-   docs: update API documentation
-   ```
-
-3. **Pull Requests**
-   - Include description of changes
-   - Link related issues
-   - Add tests if applicable
-   - Update documentation
-
 ## Testing Procedures
 
 ### Unit Tests
@@ -139,29 +115,6 @@ describe('AgentList', () => {
     });
   });
 });
-```
-
-## Deployment Process
-
-1. **Build**
-```bash
-npm run build
-```
-
-2. **Environment Variables**
-```env
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-3. **Database Migrations**
-```bash
-supabase db push
-```
-
-4. **Deploy**
-```bash
-npm run deploy
 ```
 
 ## Performance Optimization
