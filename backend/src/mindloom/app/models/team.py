@@ -158,7 +158,8 @@ class TeamORM(Base):
         # Use backref as RunORM doesn't have a dedicated 'team' relationship
         backref="team", # Creates team attribute on RunORM instances
         cascade="all, delete-orphan",
-        lazy="selectin"
+        lazy="selectin",
+        overlaps="agent,runs"
     )
 
     def __repr__(self):

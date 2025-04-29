@@ -112,7 +112,8 @@ class AgentORM(Base):
         ),
         backref="agent", 
         cascade="all, delete-orphan",
-        lazy="selectin"
+        lazy="selectin",
+        overlaps="team,runs"
     )
     schedules = relationship("AgentScheduleORM", back_populates="agent", cascade="all, delete-orphan")
     variables = relationship("AgentVariableORM", back_populates="agent", cascade="all, delete-orphan", lazy="selectin")

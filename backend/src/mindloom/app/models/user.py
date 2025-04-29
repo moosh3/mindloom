@@ -35,7 +35,7 @@ class UserORM(Base):
         "TeamORM",
         secondary=team_user_association,
         back_populates="members",
-        lazy="selectin"
+        lazy="subquery"
     )
     runs = relationship("RunORM", back_populates="user", cascade="all, delete-orphan") # Relationship to runs initiated by user
 
