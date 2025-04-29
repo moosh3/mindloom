@@ -51,73 +51,53 @@ The architecture emphasizes:
 
 ```mermaid
 sequenceDiagram
-    participant Client
-    participant API (runs.py)
-    participant RunService
-    participant DB (PostgreSQL)
-    participant K8s API
-    participant K8s Job (run_executor.py)
-    participant Redis (Pub/Sub)
-    participant Agent/TeamService
-    participant Agno Runnable
+    %% actors
+    participant client
+    participant api
+    participant db
+    participant k8sapi
+    participant k8sjob
+    participant agentteam
+    participant agnorun
+    participant redis
 
-    Client->>+API: POST /api/v1/runs (runnable_id, type, inputs)
-    API->>+RunService: create_run(data)
-    RunService->>+DB: INSERT Run (status=PENDING)
-    DB-->RunService: Run object (with run_id)
-    RunService-->>-API: Run object
+    %% 1. request
+    client->>+api: POST /runs
+    api->>+db: insert run (pending)
+    db-->>-api: run_id
+    api-->>client: 200 OK (sse open)
 
-    API->>+K8s API: Create Job (image=executor, env_vars=run_id, ...)
-    K8s API-->>-API: Job Created Confirmation
+    %% 2. schedule + mark running
+    api->>+k8sapi: create job (env=run_id)
+    api->>+db: update run → running
 
-    API->>+RunService: update_run_status(run_id, status=RUNNING)
-    RunService->>+DB: UPDATE Run SET status='RUNNING'
-    DB-->>-RunService: 
-    RunService-->>-API: 
+    %% 3. executor pod boot
+    k8sapi-->>k8sjob: pod start
+    k8sjob->>+agentteam: get config(runnable_id)
+    agentteam-->>-k8sjob: config / agnorun
 
-    Note over API: Prepare SSE stream connection
-    API-->>Client: HTTP 200 OK (SSE Stream Headers)
+    %% 4. run
+    alt execution
+        k8sjob->>+agnorun: arun(inputs, stream=true)
+        activate agnorun
 
-    K8s API->>+K8s Job: Start Pod
-    K8s Job->>+Agent/TeamService: get_agent/team_config(runnable_id)
-    Agent/TeamService->>+DB: SELECT Agent/Team config
-    DB-->>-Agent/TeamService: Config
-    Agent/TeamService-->>K8s Job: Config
-    K8s Job->>Agent/TeamService: create_agno_instance(config)
-    Agent/TeamService-->>K8s Job: Agno Runnable instance
+        loop chunks
+            agnorun-->>k8sjob: chunk
+            k8sjob-->>redis: publish run_results/{id}
+        end
 
-    K8s Job->>+Agno Runnable: arun(inputs, stream=True)
-    activate Agno Runnable
-
-    loop Stream Chunks
-        Agno Runnable-->>K8s Job: chunk (output/log/error)
-        K8s Job->>+Redis: PUBLISH run_results:{run_id} (chunk_json)
-        Redis-->>-K8s Job: 
-        K8s Job->>Redis: PUBLISH run_logs:{run_id} (log_json) # Via logging handler
+        agnorun-->>-k8sjob: final
+        deactivate agnorun
     end
 
-    Agno Runnable-->>-K8s Job: Final aggregated result / stream end
-    deactivate Agno Runnable
+    %% 5. completion
+    k8sjob->>+db: update run → completed/failed (+output)
+    k8sjob-->>k8sapi: pod complete
 
-    K8s Job->>+Redis: PUBLISH run_results:{run_id} ({"event": "end", ...})
-    Redis-->>-K8s Job: 
-
-    K8s Job->>+RunService: update_run_status(run_id, status=COMPLETED/FAILED, output=final_result)
-    RunService->>+DB: UPDATE Run SET status=..., output=...
-    DB-->>-RunService:
-    RunService-->>-K8s Job:
-
-    K8s Job->>K8s API: Pod Complete
-
-    Note over API, Redis: API Redis listener receives messages
-    Redis->>+API: Message on run_results:{run_id}
-    API-->>Client: data: {chunk_json}\n\n (SSE Event)
-    Note over API, Redis: Repeats for each chunk...
-
-    Redis->>+API: Message on run_results:{run_id} ({"event": "end", ...})
-    API-->>Client: data: {end_event_json}\n\n (SSE Event)
-    Note over API: Close SSE Stream
-
+    %% 6. server-side events to client
+    redis-->>api: sub run_results/{id}
+    api-->>client: stream chunks
+    api-->>client: [end] → close sse
 ```
 
 **Flow Description:**
