@@ -8,6 +8,7 @@ import os # For potential env vars
 import logging # Add logging
 
 from kubernetes import client, config
+from sqlalchemy.ext.asyncio import AsyncSession # Import AsyncSession
 
 from mindloom.app.models.run import Run, RunCreate, RunStatus
 from mindloom.dependencies import get_current_user
