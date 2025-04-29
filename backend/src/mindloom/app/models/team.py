@@ -103,7 +103,7 @@ class TeamRunOutput(BaseModel):
 
 # --- SQLAlchemy ORM Model --- #
 
-from sqlalchemy import Column, String, Text, Table, ForeignKey, DateTime, JSON, Boolean, Integer
+from sqlalchemy import Column, String, Text, Table, ForeignKey, DateTime, JSON, Boolean, Integer, and_
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from mindloom.db.base_class import Base
@@ -112,6 +112,8 @@ import uuid
 
 from mindloom.db.association_tables import team_user_association, team_agent_association
 from mindloom.app.models.user import UserORM
+from mindloom.app.models.run import RunORM
+
 
 class TeamORM(Base):
     """Database model for teams."""
@@ -144,6 +146,19 @@ class TeamORM(Base):
         "AgentORM",
         secondary=team_agent_association,
         back_populates="teams", # Define 'teams' relationship in AgentORM model
+        lazy="selectin"
+    )
+
+    # One-to-many relationship with RunORM - specify primaryjoin for polymorphic association
+    runs = relationship(
+        RunORM, # Use class directly
+        primaryjoin=lambda: and_(
+            RunORM.runnable_id == TeamORM.id,
+            RunORM.runnable_type == 'team'
+        ),
+        # Use backref as RunORM doesn't have a dedicated 'team' relationship
+        backref="team", # Creates team attribute on RunORM instances
+        cascade="all, delete-orphan",
         lazy="selectin"
     )
 
