@@ -51,6 +51,7 @@ from mindloom.db.base_class import Base
 # We need AgentORM and User for relationships
 # Ensure AgentORM exists in agent.py
 # Ensure User exists in user.py
+from mindloom.app.models.user import UserORM
 
 class RunORM(Base):
     """Database model for runs."""
@@ -73,7 +74,7 @@ class RunORM(Base):
     user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
 
     # Relationships
-    user = relationship("User", back_populates="runs", lazy="selectin")
+    user = relationship(UserORM, back_populates="runs", lazy="selectin")
     logs = relationship("RunLogORM", back_populates="run", cascade="all, delete-orphan", lazy="selectin") # Relationship to logs
     artifacts = relationship("RunArtifactORM", back_populates="run", cascade="all, delete-orphan") # Relationship to artifacts
 
