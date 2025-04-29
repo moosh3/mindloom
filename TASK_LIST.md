@@ -38,9 +38,9 @@
 - [x] Create Run management endpoints
 - [ ] Add content bucket management API
 - [ ] Create streaming response endpoints
-- [ ] Add data validation for all API requests
+- [x] Add data validation for all API requests
 - [ ] Implement error handling middleware
-- [ ] Create OpenAPI documentation
+- [x] Create OpenAPI documentation
 
 ### Service Layer & Agent/Team Execution
 - [ ] AgentService: Refine dynamic instantiation of Agno Agent components (Model, Tools, Knowledge, Storage) based on DB config.
