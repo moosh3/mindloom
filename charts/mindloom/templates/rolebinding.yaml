@@ -1,0 +1,16 @@
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "mindloom.fullname" . }}-job-manager-binding
+  labels:
+    {{- include "mindloom.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "mindloom.fullname" . }}-job-manager
+subjects:
+- kind: ServiceAccount
+  name: {{ include "mindloom.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+{{- end -}}

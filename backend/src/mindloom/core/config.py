@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: Optional[str] = Field(None, env="AWS_SECRET_ACCESS_KEY")
     AWS_REGION: Optional[str] = Field(None, env="AWS_REGION")
     S3_BUCKET_NAME: Optional[str] = Field(None, env="S3_BUCKET_NAME")
+    S3_ENDPOINT_URL: Optional[str] = Field(None, env="S3_ENDPOINT_URL")
 
     # OpenAI Configuration (Optional)
     OPENAI_API_KEY: Optional[str] = Field(None, env="OPENAI_API_KEY")

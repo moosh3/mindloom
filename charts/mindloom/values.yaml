@@ -5,10 +5,10 @@
 replicaCount: 1
 
 image:
-  repository: mindloom/backend # Replace with your actual image registry/repository
-  pullPolicy: IfNotPresent
+  repository: ghcr.io/moosh3/mindloom # Replace with your actual image registry/repository
+  pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  tag: "main"
 
 imagePullSecrets:
   - name: ghcr-creds # Default name, change if you used a different secret name
@@ -29,6 +29,11 @@ podAnnotations: {}
 
 podSecurityContext: {}
   # fsGroup: 2000
+
+# Add RBAC configuration flag
+rbac:
+  # Specifies whether RBAC resources (Role, RoleBinding) should be created
+  create: true
 
 securityContext: {}
   # capabilities:
@@ -134,11 +139,18 @@ postgresql-pgvector:
 
 redis:
   enabled: true # Enable the redis subchart
+  architecture: standalone
   auth:
     password: "changeme-redis"
 
 minio:
   enabled: true # Enable the minio subchart
+  statefulset:
+    replicaCount: 2
+  resources: {}
+  resourcesPreset: micro
+  replicaCount: 1
+  mode: standalone
   auth:
     rootUser: minioadmin
     rootPassword: "changeme-minio"

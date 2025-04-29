@@ -47,6 +47,10 @@ class AgentBase(BaseModel):
                 raise ValueError(f'llm_config is missing required keys: {missing_keys}')
         return v
 
+    class Config:
+        extra = "allow"
+        from_attributes = True
+
 class AgentCreate(AgentBase):
     """Model for creating a new agent (input)."""
     pass
@@ -64,6 +68,10 @@ class AgentUpdate(AgentBase):
     content_bucket_ids: Optional[List[uuid.UUID]] = None
     owner_id: Optional[uuid.UUID] = None
 
+    class Config:
+        extra = "allow"
+        from_attributes = True
+
 class Agent(AgentBase):
     """Model for representing an agent (output), including its ID."""
     id: uuid.UUID = Field(..., description="Unique ID of the agent")
@@ -72,7 +80,7 @@ class Agent(AgentBase):
     # content_buckets: Optional[List['ContentBucket']] = [] # Requires ContentBucket schema import
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # --- SQLAlchemy ORM Model --- #
 
@@ -154,6 +162,10 @@ class AgentScheduleBase(BaseModel):
             raise ValueError(f"Invalid cron expression: {e}")
         return v
 
+    class Config:
+        extra = "allow"
+        from_attributes = True
+
 class AgentScheduleCreate(AgentScheduleBase):
     """Model for creating a new agent schedule."""
     pass
@@ -172,7 +184,7 @@ class AgentSchedule(AgentScheduleBase):
     last_run_at: Optional[datetime] = Field(None, description="Timestamp of the last run triggered by this schedule")
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # --- SQLAlchemy ORM Model for Agent Schedule --- #
 
@@ -216,6 +228,10 @@ class AgentVariableBase(BaseModel):
             return stripped # Return the stripped key
         return v
 
+    class Config:
+        extra = "allow"
+        from_attributes = True
+
 class AgentVariableCreate(AgentVariableBase):
     """Model for creating a new agent variable."""
     pass
@@ -233,7 +249,7 @@ class AgentVariable(AgentVariableBase):
     updated_at: datetime = Field(..., description="Timestamp when the variable was last updated")
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # --- SQLAlchemy ORM Model for Agent Variable --- #
 

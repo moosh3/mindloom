@@ -1,0 +1,15 @@
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "mindloom.fullname" . }}-job-manager
+  labels:
+    {{- include "mindloom.labels" . | nindent 4 }}
+rules:
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["create", "get", "list", "watch", "delete", "patch"]
+- apiGroups: [""] # Core API group
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list", "watch"]
+{{- end -}}

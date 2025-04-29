@@ -93,7 +93,7 @@ class Team(TeamBase):
     content_buckets: List[ContentBucket] = []
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # --- Pydantic Schemas for Run Endpoint --- #
 

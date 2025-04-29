@@ -21,7 +21,7 @@ services:
       - AWS_ACCESS_KEY_ID=minioadmin # Use MinIO root user
       - AWS_SECRET_ACCESS_KEY=minioadmin # Use MinIO root password
       - AWS_REGION=us-east-1 # Region can often be nominal for MinIO
-      - S3_BUCKET_NAME=mindloom-dev # Default bucket name
+      - S3_BUCKET_NAME=mindloom-data # Default bucket name
       - S3_ENDPOINT_URL=http://minio:9000 # URL for the MinIO service
       - OPENAI_API_KEY=ssk-proj-T_vgm2iIQcEshn54V5B06rFiAY0IBU-ZGYYiRe2hH_KF5NCY2AChdHz858mnrIWK0OkNHJUh18T3BlbkFJ0eoxOswDx2aTwwK8q5YMwUctG0VGXVVApxqSPHHUMwP0cDGHRqZrFq3N-86o-D7cMjyvevvpwA
     depends_on:
@@ -31,6 +31,8 @@ services:
         condition: service_started # Simple start is usually fine for Redis
       minio: # Add dependency on MinIO
         condition: service_healthy # Wait for MinIO healthcheck
+      minio-init: # Wait for bucket creation
+        condition: service_completed_successfully
 
   db:
     image: pgvector/pgvector:pg15 # Use pgvector image based on Postgres 15
@@ -68,6 +70,7 @@ services:
     environment:
       - MINIO_ROOT_USER=minioadmin # Access key for MinIO
       - MINIO_ROOT_PASSWORD=minioadmin # Secret key for MinIO
+      - MINIO_DEFAULT_BUCKET=mindloom-data # Define bucket name here or in .env
     volumes:
       - minio_data:/data
     ports:
@@ -78,6 +81,30 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  minio-init:
+    image: minio/mc # Use the MinIO Client image
+    depends_on:
+      minio:
+        condition: service_healthy # Wait for minio server to be healthy
+    environment:
+      - MINIO_SERVER_HOST=minio
+      - MINIO_SERVER_PORT=9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin} # Use env var from minio service
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin} # Use env var from minio service
+      - MINIO_BUCKET=${MINIO_DEFAULT_BUCKET:-mindloom-data} # Use env var from minio service
+    entrypoint: >
+      /bin/sh -c "
+      echo 'Waiting for MinIO...';
+      until mc alias set myminio http://$$MINIO_SERVER_HOST:$$MINIO_SERVER_PORT $$MINIO_ACCESS_KEY $$MINIO_SECRET_KEY; do
+        echo '... MinIO not ready, waiting 5s ...';
+        sleep 5;
+      done;
+      echo 'MinIO ready, attempting to create bucket: $$MINIO_BUCKET';
+      mc mb myminio/$$MINIO_BUCKET --ignore-existing;
+      echo 'Bucket creation command executed.';
+      exit 0;
+      "
 
 volumes:
   postgres_data:
