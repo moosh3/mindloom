@@ -106,9 +106,12 @@ class TeamRunOutput(BaseModel):
 from sqlalchemy import Column, String, Text, Table, ForeignKey, DateTime, JSON, Boolean, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-
 from mindloom.db.base_class import Base
+from datetime import datetime
+import uuid
+
 from mindloom.db.association_tables import team_user_association, team_agent_association
+from mindloom.app.models.user import UserORM
 
 class TeamORM(Base):
     """Database model for teams."""
@@ -130,7 +133,7 @@ class TeamORM(Base):
 
     # Relationship: Many-to-Many with Users (Team Members)
     members = relationship(
-        "User",
+        UserORM,
         secondary=team_user_association,
         back_populates="teams", # Define 'teams' relationship in User model
         lazy="selectin"
