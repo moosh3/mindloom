@@ -203,8 +203,8 @@ async def create_run(
         spec=client.V1PodSpec(
             restart_policy="Never", # Jobs should not restart pods on failure
             containers=[container],
-            # Add imagePullSecrets if using a private registry
-            # image_pull_secrets=[client.V1LocalObjectReference(name="my-registry-secret")]
+            # Add imagePullSecrets for GitHub Container Registry
+            image_pull_secrets=[client.V1LocalObjectReference(name="ghcr-creds")],
             # Consider serviceAccountName if specific permissions are needed for the pod
             # service_account_name="mindloom-executor-sa"
         ),
