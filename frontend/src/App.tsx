@@ -7,12 +7,13 @@ import Runs from './pages/Runs';
 import RunConfig from './pages/RunConfig';
 import RunOutput from './pages/RunOutput';
 import Teams from './pages/Teams';
+import WorkflowEditor from './components/workflow/WorkflowEditor';
 import { Agent } from './types';
 
 function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [currentChat, setCurrentChat] = useState<Agent | null>(null);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'chat' | 'content' | 'runs' | 'run-config' | 'run-output' | 'teams'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'chat' | 'content' | 'runs' | 'run-config' | 'run-output' | 'teams' | 'workflows'>('dashboard');
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   
   const handleStartChat = (agent: Agent) => {
@@ -20,7 +21,7 @@ function App() {
     setCurrentView('chat');
   };
   
-  const handleNavigate = (view: 'dashboard' | 'chat' | 'content' | 'runs' | 'teams') => {
+  const handleNavigate = (view: 'dashboard' | 'chat' | 'content' | 'runs' | 'teams' | 'workflows') => {
     setCurrentView(view);
     if (view === 'chat' && !currentChat) {
       setCurrentChat({
@@ -66,6 +67,8 @@ function App() {
           <Runs />
         ) : currentView === 'teams' ? (
           <Teams />
+        ) : currentView === 'workflows' ? (
+          <WorkflowEditor />
         ) : currentView === 'run-config' && selectedAgent ? (
           <RunConfig
             agent={selectedAgent}

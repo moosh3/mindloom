@@ -93,12 +93,16 @@ affinity: {}
 # Environment variables passed to the backend container
 environment:
   # Database connection (references postgresql-pgvector subchart)
-  DATABASE_URL: "postgresql+asyncpg://postgres:postgres@pgvector:5432/mindloom_db"
+  DATABASE_URL: "postgresql+asyncpg://postgres:postgres@pgvector:5432/postgres"
   # Redis connection (references redis subchart)
-  REDIS_URL: "redis://:$(REDIS_PASSWORD)@{{ printf \"%s-redis-master\" .Release.Name }}:6379/0"
+  REDIS_HOST: "mindloom-redis-headless"
+  REDIS_PASSWORD: "changeme-redis"
   # MinIO/S3 connection (references minio subchart)
-  S3_ENDPOINT_URL: "http://{{ printf \"%s-minio\" .Release.Name }}:9000"
-  S3_BUCKET_NAME: "mindloom-{{ .Release.Name }}" # Example bucket name, adjust as needed
+  AWS_ACCESS_KEY_ID: "minioadmin" # Use MinIO root user
+  AWS_SECRET_ACCESS_KEY: "minioadmin" # Use MinIO root password
+  AWS_REGION: "us-east-1" # Region can often be nominal for MinIO
+  S3_BUCKET_NAME: "mindloom-data" # Default bucket name
+  S3_ENDPOINT_URL: "http://mindloom-minio:9000" # URL for the MinIO service
 
 envFrom:
   - secretRef:
@@ -133,23 +137,42 @@ envValueFrom:
 postgresql-pgvector:
   enabled: true # Enable the postgresql-pgvector subchart
   auth:
-    database: mindloom_db
+    database: postgres
     username: postgres
     password: "postgres"
 
 redis:
   enabled: true # Enable the redis subchart
+  global:
+    storageClass: do-block-storage-xfs
   architecture: standalone
   auth:
     password: "changeme-redis"
 
 minio:
   enabled: true # Enable the minio subchart
+  global:
+    storageClass: do-block-storage-xfs
   statefulset:
     replicaCount: 2
-  resources: {}
+    resources:
+      requests:
+        memory: 2Gi
   resourcesPreset: micro
+  deployment:
+    resources:
+      requests:
+        memory: 2Gi
   replicaCount: 1
+  resources:
+    requests:
+      memory: 2Gi
+  provisioning:
+    enabled: true
+    buckets:
+      - name: mindloom-data
+        region: us-east-1     # optional
+        policy: none          # none|download|upload|public
   mode: standalone
   auth:
     rootUser: minioadmin

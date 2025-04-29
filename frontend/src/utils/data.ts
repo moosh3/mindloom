@@ -1,4 +1,4 @@
-import { Agent, AgentCategory, FilterOption, TabOption, Run } from '../types';
+import { Agent, AgentCategory, FilterOption, TabOption } from '../types';
 import { 
   Bot, 
   Code, 
@@ -197,81 +197,4 @@ export const userAgents: Agent[] = [
     isCustom: true,
     createdAt: new Date(2023, 5, 8),
   },
-];
-
-export const mockRuns: Run[] = [
-  {
-    id: '1',
-    agentId: 'agent-1',
-    agentName: 'Sales Assistant',
-    startTime: new Date(Date.now() - 1000 * 60 * 30),
-    endTime: new Date(Date.now() - 1000 * 60 * 25),
-    triggeredBy: {
-      id: 'user-1',
-      name: 'John Doe',
-      avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg'
-    },
-    status: 'completed',
-    duration: 300,
-    logs: ['Starting execution...', 'Processing input...', 'Execution completed'],
-    input: { query: 'sales forecast' },
-    output: { result: 'Forecast analysis completed' },
-    artifacts: [
-      {
-        id: 'art-1',
-        name: 'Sales Report.pdf',
-        type: 'pdf',
-        size: 2.5 * 1024 * 1024,
-        url: '#',
-        createdAt: new Date()
-      },
-      {
-        id: 'art-2',
-        name: 'Raw Data.json',
-        type: 'json',
-        size: 150 * 1024,
-        url: '#',
-        createdAt: new Date()
-      }
-    ],
-    resourceUsage: {
-      cpuTime: 2.5,
-      memoryUsage: 256,
-      apiCalls: 3
-    }
-  },
-  {
-    id: '2',
-    teamId: 'team-1',
-    teamName: 'Customer Support Team',
-    teamType: 'route',
-    startTime: new Date(Date.now() - 1000 * 60 * 15),
-    triggeredBy: {
-      id: 'user-2',
-      name: 'Jane Smith'
-    },
-    status: 'running',
-    logs: ['Starting team execution...', 'Processing tasks...'],
-    input: { ticket: 'support-123' },
-    artifacts: [],
-    agentRuns: [
-      {
-        id: 'agent-run-1',
-        agentId: 'agent-2',
-        agentName: 'Ticket Classifier',
-        startTime: new Date(Date.now() - 1000 * 60 * 14),
-        endTime: new Date(Date.now() - 1000 * 60 * 13),
-        triggeredBy: {
-          id: 'user-2',
-          name: 'Jane Smith'
-        },
-        status: 'completed',
-        duration: 60,
-        logs: ['Classifying ticket...', 'Classification completed'],
-        input: { ticket: 'support-123' },
-        output: { category: 'billing' },
-        artifacts: []
-      }
-    ]
-  }
 ];

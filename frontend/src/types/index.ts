@@ -55,15 +55,6 @@ export interface Team {
   createdAt: Date;
 }
 
-export interface RunArtifact {
-  id: string;
-  name: string;
-  type: 'pdf' | 'zip' | 'json' | 'txt';
-  size: number;
-  url: string;
-  createdAt: Date;
-}
-
 export interface Run {
   id: string;
   startTime: Date;
@@ -79,7 +70,6 @@ export interface Run {
   input: Record<string, any>;
   output?: Record<string, any>;
   error?: string;
-  artifacts: RunArtifact[];
   resourceUsage?: {
     cpuTime: number;
     memoryUsage: number;
@@ -109,36 +99,4 @@ export interface TabOption {
   id: string;
   label: string;
   count?: number;
-}
-
-export interface Message {
-  id: string;
-  content: string;
-  sender: 'user' | 'agent';
-  timestamp: Date;
-  attachments?: {
-    type: string;
-    url: string;
-  }[];
-}
-
-export interface Conversation {
-  id: string;
-  agentId: string;
-  title: string;
-  lastMessage?: string;
-  lastMessageTime: Date;
-  messages: Message[];
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface ChatStore {
-  conversations: Conversation[];
-  currentConversation: Conversation | null;
-  addConversation: (agent: Agent) => Conversation;
-  addMessage: (conversationId: string, message: Omit<Message, 'id'>) => void;
-  setCurrentConversation: (conversationId: string) => void;
-  clearConversation: (conversationId: string) => void;
-  clearAllConversations: () => void;
 }

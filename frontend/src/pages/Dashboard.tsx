@@ -4,8 +4,6 @@ import Header from '../components/Header';
 import Tabs from '../components/ui/Tabs';
 import AgentCatalog from '../components/AgentCatalog';
 import CreateAgent from './CreateAgent';
-import RunConfig from './RunConfig';
-import RunOutput from './RunOutput';
 import { Agent } from '../types';
 import { agentTemplates, tabOptions, userAgents } from '../utils/data';
 import Button from '../components/ui/Button';
@@ -20,8 +18,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onStartChat, onAgentSelect }) => 
   const [isCreating, setIsCreating] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<Agent | null>(null);
-  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
-  const [view, setView] = useState<'dashboard' | 'run-config' | 'run-output'>('dashboard');
   
   const filteredAgents = useMemo(() => {
     const query = searchQuery.toLowerCase();
@@ -46,6 +42,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onStartChat, onAgentSelect }) => 
     const popularIds = new Set(popularAgents.map(a => a.id));
     const recommendedIds = new Set(recommendedAgents.map(a => a.id));
     
+    // Convert remaining templates to non-template agents
     const convertedTemplates = agentTemplates
       .filter(agent => !popularIds.has(agent.id))
       .map(template => ({
@@ -99,14 +96,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onStartChat, onAgentSelect }) => 
   const handleAgentClick = (agent: Agent, isTemplate: boolean = false) => {
     if (isTemplate) {
       handleTemplateSelect(agent);
-    } else {
-      setSelectedAgent(agent);
-      setView('run-config');
+    } else if (onAgentSelect) {
+      onAgentSelect(agent);
     }
-  };
-
-  const handleRunAgent = (config: any) => {
-    setView('run-output');
   };
   
   if (isCreating) {
@@ -118,44 +110,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onStartChat, onAgentSelect }) => 
         }}
         onGenerate={handleGenerateAgent}
         template={selectedTemplate}
-      />
-    );
-  }
-
-  if (view === 'run-config' && selectedAgent) {
-    return (
-      <RunConfig
-        agent={selectedAgent}
-        onBack={() => {
-          setView('dashboard');
-          setSelectedAgent(null);
-        }}
-        onRun={handleRunAgent}
-      />
-    );
-  }
-
-  if (view === 'run-output' && selectedAgent) {
-    return (
-      <RunOutput
-        run={{
-          id: Date.now().toString(),
-          agentId: selectedAgent.id,
-          agentName: selectedAgent.name,
-          startTime: new Date(),
-          status: 'running',
-          triggeredBy: {
-            id: 'user-1',
-            name: 'Current User'
-          },
-          logs: ['Initializing...'],
-          input: {},
-          artifacts: []
-        }}
-        onBack={() => {
-          setView('dashboard');
-          setSelectedAgent(null);
-        }}
       />
     );
   }
@@ -184,11 +138,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onStartChat, onAgentSelect }) => 
         
         <div className="mb-6">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-6 w-6 text-text-tertiary pointer-events-none" />
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+              <Search className="h-5 w-5 text-text-tertiary" />
+            </div>
             <input
               type="text"
               placeholder="Search agents..."
-              className="w-full rounded-md border border-border bg-background py-3 pl-12 pr-4 text-text placeholder-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-md border border-border bg-background py-2 pl-10 pr-4 text-text placeholder-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />

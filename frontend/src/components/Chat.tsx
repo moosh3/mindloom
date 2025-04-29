@@ -1,10 +1,25 @@
-import React, { useState, useEffect } from 'react';
-import { Send, ArrowLeft, Bot, ChevronDown, Plus, Search, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Send, ArrowLeft, Bot, ChevronDown, Plus, Search } from 'lucide-react';
 import { Agent } from '../types';
 import { agentIconMap } from '../utils/data';
 import AgentSelect from './AgentSelect';
 import Button from './ui/Button';
-import useChatStore from '../stores/chatStore';
+import { agentTemplates, userAgents } from '../utils/data';
+
+interface ChatHistory {
+  id: string;
+  title: string;
+  agent: Agent;
+  lastMessage: string;
+  timestamp: Date;
+}
+
+interface Message {
+  id: string;
+  content: string;
+  sender: 'user' | 'agent';
+  timestamp: Date;
+}
 
 interface ChatProps {
   agent: Agent;
@@ -17,53 +32,46 @@ const Chat: React.FC<ChatProps> = ({ agent: initialAgent, onBack }) => {
   const [showAgentSelect, setShowAgentSelect] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAgentSearch, setShowAgentSearch] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: '1',
+      content: `Hi! I'm your ${initialAgent.name.toLowerCase()}. How can I help you today?`,
+      sender: 'agent',
+      timestamp: new Date(),
+    },
+  ]);
 
-  const {
-    conversations,
-    currentConversation,
-    addConversation,
-    addMessage,
-    setCurrentConversation,
-    clearConversation,
-  } = useChatStore();
-
-  useEffect(() => {
-    // Find existing conversation or create new one
-    const existingConversation = conversations.find(c => c.agentId === agent.id);
-    if (existingConversation) {
-      setCurrentConversation(existingConversation.id);
-    } else {
-      const newConversation = addConversation(agent);
-      addMessage(newConversation.id, {
-        content: `Hi! I'm your ${agent.name.toLowerCase()}. How can I help you today?`,
-        sender: 'agent',
-        timestamp: new Date(),
-      });
-    }
-  }, [agent.id]);
+  const allAgents = [...agentTemplates, ...userAgents];
+  const filteredAgents = allAgents.filter(agent =>
+    agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    agent.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const IconComponent = agentIconMap[agent.icon] || agentIconMap.default;
 
   const handleSendMessage = () => {
-    if (!message.trim() || !currentConversation) return;
+    if (!message.trim()) return;
 
-    // Add user message
-    addMessage(currentConversation.id, {
+    const newMessage: Message = {
+      id: Date.now().toString(),
       content: message,
       sender: 'user',
       timestamp: new Date(),
-    });
+    };
+
+    setMessages([...messages, newMessage]);
+    setMessage('');
 
     // Simulate agent response
     setTimeout(() => {
-      addMessage(currentConversation.id, {
+      const response: Message = {
+        id: (Date.now() + 1).toString(),
         content: `I understand you're asking about "${message}". Let me help you with that.`,
         sender: 'agent',
         timestamp: new Date(),
-      });
+      };
+      setMessages(prev => [...prev, response]);
     }, 1000);
-
-    setMessage('');
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -77,13 +85,14 @@ const Chat: React.FC<ChatProps> = ({ agent: initialAgent, onBack }) => {
     setAgent(newAgent);
     setShowAgentSelect(false);
     setShowAgentSearch(false);
-  };
-
-  const formatTime = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      minute: 'numeric',
-    }).format(date);
+    setMessages([
+      {
+        id: Date.now().toString(),
+        content: `Hi! I'm your ${newAgent.name.toLowerCase()}. How can I help you today?`,
+        sender: 'agent',
+        timestamp: new Date(),
+      },
+    ]);
   };
 
   return (
@@ -119,57 +128,54 @@ const Chat: React.FC<ChatProps> = ({ agent: initialAgent, onBack }) => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 pt-0">
-              <AgentSelect
-                onSelect={handleAgentSelect}
-                onClose={() => setShowAgentSearch(false)}
-              />
+              <div className="space-y-2">
+                {filteredAgents.map((agent) => (
+                  <button
+                    key={agent.id}
+                    onClick={() => handleAgentSelect(agent)}
+                    className="flex w-full items-center space-x-3 rounded-lg border border-border p-3 text-left transition-colors hover:border-primary"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-background-secondary">
+                      {agentIconMap[agent.icon] && (
+                        <IconComponent className="h-4 w-4 text-primary" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="font-medium text-text">{agent.name}</div>
+                      <div className="text-sm text-text-secondary">
+                        {agent.description}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         ) : (
-          <div className="h-[calc(100vh-4rem)] overflow-y-auto p-4">
+          <div className="p-4">
             <div className="space-y-2">
-              {conversations.map((conversation) => (
-                <button
-                  key={conversation.id}
-                  onClick={() => {
-                    setCurrentConversation(conversation.id);
-                    const conversationAgent = conversation.agentId === agent.id ? agent : null;
-                    if (conversationAgent) {
-                      setAgent(conversationAgent);
-                    }
-                  }}
-                  className={`flex w-full items-center space-x-3 rounded-lg border p-3 text-left transition-colors ${
-                    currentConversation?.id === conversation.id
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border hover:border-primary/50'
-                  }`}
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-background-secondary">
-                    <IconComponent className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className="truncate text-sm font-medium text-text">
-                        {conversation.title}
-                      </p>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          clearConversation(conversation.id);
-                        }}
-                        className="rounded-full p-1 hover:bg-background-secondary"
-                      >
-                        <Trash2 className="h-4 w-4 text-text-secondary" />
-                      </button>
+              {messages.length > 0 && (
+                <div className="rounded-lg border border-border p-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-background-secondary">
+                      <IconComponent className="h-4 w-4 text-primary" />
                     </div>
-                    {conversation.lastMessage && (
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <p className="truncate text-sm font-medium text-text">
+                          Chat with {agent.name}
+                        </p>
+                        <span className="text-xs text-text-secondary">
+                          {new Date().toLocaleDateString()}
+                        </span>
+                      </div>
                       <p className="mt-1 truncate text-xs text-text-secondary">
-                        {conversation.lastMessage}
+                        {messages[messages.length - 1].content}
                       </p>
-                    )}
+                    </div>
                   </div>
-                </button>
-              ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -210,7 +216,7 @@ const Chat: React.FC<ChatProps> = ({ agent: initialAgent, onBack }) => {
 
         <div className="flex-1 overflow-y-auto p-4">
           <div className="space-y-4">
-            {currentConversation?.messages.map((msg) => (
+            {messages.map((msg) => (
               <div
                 key={msg.id}
                 className={`flex items-start space-x-3 ${
@@ -229,7 +235,7 @@ const Chat: React.FC<ChatProps> = ({ agent: initialAgent, onBack }) => {
                 }`}>
                   <p className="text-sm">{msg.content}</p>
                   <span className="mt-1 block text-xs opacity-75">
-                    {formatTime(msg.timestamp)}
+                    {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
               </div>

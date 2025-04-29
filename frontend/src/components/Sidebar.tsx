@@ -6,7 +6,8 @@ import {
   PlayCircle,
   Bot, 
   Menu,
-  LogOut
+  LogOut,
+  Share2
 } from 'lucide-react';
 import AgentSelect from './AgentSelect';
 import { Agent } from '../types';
@@ -17,7 +18,7 @@ interface SidebarProps {
   collapsed?: boolean;
   onToggle?: () => void;
   onStartChat?: (agent: Agent) => void;
-  onNavigate: (view: 'dashboard' | 'chat' | 'content' | 'runs' | 'teams') => void;
+  onNavigate: (view: 'dashboard' | 'chat' | 'content' | 'runs' | 'teams' | 'workflows') => void;
   currentView: string;
 }
 
@@ -38,6 +39,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { name: 'Chat', icon: MessageSquare, href: 'chat', current: currentView === 'chat' },
     { name: 'Content', icon: FileText, href: 'content', current: currentView === 'content' },
     { name: 'Runs', icon: PlayCircle, href: 'runs', current: currentView === 'runs' },
+    { name: 'Workflows', icon: Share2, href: 'workflows', current: currentView === 'workflows' },
   ];
   
   const handleAgentSelect = (agent: Agent) => {
@@ -59,7 +61,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     <div className={`flex h-screen flex-col border-r border-border bg-background transition-all duration-300 ${collapsed ? 'w-16' : 'w-64'}`}>
       <div className="flex h-16 items-center justify-between px-4">
         {!collapsed && (
-          <div className="text-xl font-bold text-primary">Mindloom</div>
+          <div className="text-xl font-bold text-primary">AgnoAgents</div>
         )}
         <button onClick={onToggle} className="rounded-md p-1 hover:bg-background-secondary">
           <Menu className="h-5 w-5 text-text-secondary" />
@@ -71,7 +73,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           {navigation.map((item) => (
             <button
               key={item.name}
-              onClick={() => onNavigate(item.href as 'dashboard' | 'chat' | 'content' | 'runs' | 'teams')}
+              onClick={() => onNavigate(item.href as 'dashboard' | 'chat' | 'content' | 'runs' | 'teams' | 'workflows')}
               className={`
                 flex w-full items-center rounded-md px-3 py-2 text-sm font-medium transition-colors
                 ${item.current
