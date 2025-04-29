@@ -79,11 +79,12 @@ class Agent(AgentBase):
 from sqlalchemy import Column, String, Text, ForeignKey, JSON, Boolean, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-
+from sqlalchemy import and_
 from mindloom.db.base_class import Base
 from mindloom.db.association_tables import team_agent_association
 from mindloom.app.models.agent_content_bucket import agent_content_bucket_association
 from mindloom.app.models.user import UserORM
+from mindloom.app.models.run import RunORM
 
 class AgentORM(Base):
     """Database model for agents."""
@@ -103,7 +104,16 @@ class AgentORM(Base):
 
     owner = relationship(UserORM, back_populates="agents", lazy="selectin")
 
-    runs = relationship("RunORM", back_populates="agent", cascade="all, delete-orphan")
+    runs = relationship(
+        RunORM, 
+        primaryjoin=lambda: and_(
+            RunORM.runnable_id == AgentORM.id,
+            RunORM.runnable_type == 'agent'
+        ),
+        backref="agent", 
+        cascade="all, delete-orphan",
+        lazy="selectin"
+    )
     schedules = relationship("AgentScheduleORM", back_populates="agent", cascade="all, delete-orphan")
     variables = relationship("AgentVariableORM", back_populates="agent", cascade="all, delete-orphan", lazy="selectin")
     teams = relationship(
