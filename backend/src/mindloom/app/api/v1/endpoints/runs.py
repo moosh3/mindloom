@@ -47,10 +47,13 @@ logger = logging.getLogger(__name__)
 async def _stream_run_results(run_id: str) -> AsyncGenerator[str, None]:
     """Async generator to subscribe to Redis and yield SSE messages for a run."""
     channel_name = f"run_results:{run_id}"
+    redis_client = None
     pubsub = None
     try:
-        # Use the existing redis_service for connection
-        pubsub = redis_service.redis.pubsub()
+        # Get Redis client from the service
+        redis_client = await redis_service.get_client()
+        # Create pubsub object
+        pubsub = redis_client.pubsub()
         await pubsub.subscribe(channel_name)
         logger.info(f"Subscribed to Redis channel: {channel_name}")
 
@@ -97,10 +100,11 @@ async def _stream_run_results(run_id: str) -> AsyncGenerator[str, None]:
         if pubsub:
             try:
                 await pubsub.unsubscribe(channel_name)
-                await pubsub.close()
-                logger.info(f"Unsubscribed and closed pubsub for {channel_name}")
+                # Note: pubsub doesn't have a close() method in the asyncio client
+                # The connection is managed by the Redis client itself
+                logger.info(f"Unsubscribed from channel {channel_name}")
             except Exception as unsub_err:
-                logger.error(f"Error unsubscribing/closing pubsub for {channel_name}: {unsub_err}")
+                logger.error(f"Error unsubscribing from channel {channel_name}: {unsub_err}")
 
 
 @router.post(
