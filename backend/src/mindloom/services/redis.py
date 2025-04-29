@@ -25,9 +25,9 @@ def initialize():
     load_dotenv()
 
     # Get Redis configuration
-    redis_host = os.getenv('REDIS_HOST', 'redis')
+    redis_host = os.getenv('REDIS_HOST', 'mindloom-redis-headless')
     redis_port = int(os.getenv('REDIS_PORT', 6379))
-    redis_password = os.getenv('REDIS_PASSWORD', '')
+    redis_password = os.getenv('REDIS_PASSWORD', 'changeme-redis')
     # Convert string 'True'/'False' to boolean
     redis_ssl_str = os.getenv('REDIS_SSL', 'False')
     redis_ssl = redis_ssl_str.lower() == 'true'

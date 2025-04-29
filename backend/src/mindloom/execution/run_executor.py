@@ -216,7 +216,7 @@ async def main():
                     try:
                         chunk_json = chunk.model_dump_json() # Use Pydantic v2 serialization
                         await redis_service.publish(results_channel, chunk_json)
-                        logger.debug(f"Published chunk to {results_channel}", extra=log_extra)
+                        logger.debug(f"Published chunk to {results_channel}: {chunk_json}", extra=log_extra)
                     except AttributeError:
                         # Fallback for older Pydantic or different object types
                         try:
