@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     # Kubernetes
     KUBERNETES_NAMESPACE: str = Field("default", env="KUBERNETES_NAMESPACE")
-    KUBERNETES_EXECUTOR_IMAGE: str = Field("ghcr.io/moosh3/mindloom-executor:latest", env="KUBERNETES_EXECUTOR_IMAGE")
+    KUBERNETES_EXECUTOR_IMAGE: str = Field("ghcr.io/moosh3/mindloom:latest", env="KUBERNETES_EXECUTOR_IMAGE")
 
     # JWT Settings
     # Generate a default secret key for development, ensure it's overridden in production

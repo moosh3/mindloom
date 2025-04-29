@@ -35,7 +35,7 @@ import mindloom.services.redis as redis_service
 from mindloom.core.config import settings
 
 # Import DB setup functions
-from mindloom.db.session import create_db_engine, create_db_session_factory
+from mindloom.db.session import get_async_db_session, async_session_maker
 
 # --- Logging Setup ---
 logger = logging.getLogger("run_executor")
@@ -154,8 +154,8 @@ async def main():
         logger.info("RedisPubSubHandler added to logger.", extra=log_extra)
 
         # Initialize DB Engine and Session Factory
-        engine = create_db_engine(str(settings.DATABASE_URL))
-        async_session_factory = create_db_session_factory(engine)
+        engine = create_async_engine(str(settings.DATABASE_URL))
+        async_session_factory = async_session_maker(engine)
         logger.info("Database engine and session factory initialized.", extra=log_extra)
 
         # Instantiate Services (they need settings)

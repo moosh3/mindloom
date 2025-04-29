@@ -187,7 +187,7 @@ async def create_run(
     container = client.V1Container(
         name="run-executor",
         image=settings.KUBERNETES_EXECUTOR_IMAGE, # Use image from settings
-        command=["python", "/app/mindloom/execution/run_executor.py"], # Command to run the script
+        command=["uv", "run", "/app/src/mindloom/execution/run_executor.py"], # Command to run the script
         env=env_vars,
         image_pull_policy="IfNotPresent", # Or "Always" if using :latest tag
         # Add resource requests/limits
