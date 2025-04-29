@@ -86,6 +86,7 @@ from mindloom.app.models.agent_content_bucket import agent_content_bucket_associ
 from mindloom.app.models.user import UserORM
 from mindloom.app.models.run import RunORM
 
+
 class AgentORM(Base):
     """Database model for agents."""
     __tablename__ = "agents"

@@ -114,6 +114,7 @@ from mindloom.db.association_tables import team_user_association, team_agent_ass
 from mindloom.app.models.user import UserORM
 from mindloom.app.models.run import RunORM
 
+
 class TeamORM(Base):
     """Database model for teams."""
     __tablename__ = "teams"
