@@ -14,10 +14,9 @@ RUN_INPUT_MESSAGE="Hello, Agent! How are you today?"
 # Minimal model config for OpenAI provider (backend expects lowercase provider and a params block)
 MODEL_CONFIG='{
   "provider": "openai",
-  "params": {
-    "model_name": "gpt-4o",
-    "config_overrides": {}
-  }
+  "model_id": "gpt-4o",
+  "api_key": "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",
+  "config_overrides": {}
 }'
 
 # --- Auth Credentials (adjust or export as env vars) ---
@@ -52,11 +51,10 @@ AGENT_PAYLOAD=$(cat <<EOF
 {
   "name": "${AGENT_NAME}",
   "description": "${AGENT_DESCRIPTION}",
-  "model_config": ${MODEL_CONFIG},
-  "tool_configs": [],
-  "knowledge_base_configs": [],
-  "storage_config": null, 
-  "team_id": null 
+  "llm_config": ${MODEL_CONFIG},
+  "tools": [],
+  "knowledge_config": {},
+  "storage_config": null
 }
 EOF
 )

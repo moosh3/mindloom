@@ -46,12 +46,28 @@ spec:
           #   httpGet:
           #     path: /readyz # Assuming a readiness check endpoint exists
           #     port: http
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           env:
+            {{- range $name, $cfg := .Values.envValueFrom }}
+            - name: {{ $name }}
+              valueFrom:
+                {{- if $cfg.secretKeyRef }}
+                secretKeyRef:
+                  name: {{ $cfg.secretKeyRef.name | quote }}
+                  key: {{ $cfg.secretKeyRef.key | quote }}
+                {{- else if $cfg.configMapKeyRef }}
+                configMapKeyRef:
+                  name: {{ $cfg.configMapKeyRef.name | quote }}
+                  key: {{ $cfg.configMapKeyRef.key | quote }}
+                {{- end }}
+            {{- end }}
             {{- range $key, $value := .Values.environment }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
-            # Consider using secrets for sensitive env vars
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

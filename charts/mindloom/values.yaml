@@ -92,43 +92,24 @@ affinity: {}
 # --- Configuration --- #
 # Environment variables passed to the backend container
 environment:
-  # Database connection (references postgresql-pgvector subchart)
   DATABASE_URL: "postgresql+asyncpg://postgres:postgres@pgvector:5432/postgres"
-  # Redis connection (references redis subchart)
   REDIS_HOST: "mindloom-redis-headless"
-  REDIS_PASSWORD: "changeme-redis"
-  # MinIO/S3 connection (references minio subchart)
-  AWS_ACCESS_KEY_ID: "minioadmin" # Use MinIO root user
-  AWS_SECRET_ACCESS_KEY: "minioadmin" # Use MinIO root password
-  AWS_REGION: "us-east-1" # Region can often be nominal for MinIO
-  S3_BUCKET_NAME: "mindloom-data" # Default bucket name
-  S3_ENDPOINT_URL: "http://mindloom-minio:9000" # URL for the MinIO service
-
-envFrom:
-  - secretRef:
-      name: "{{ printf \"%s-postgresql-pgvector\" .Release.Name }}" # Assumes secret name matches service
-  - secretRef:
-      name: "{{ printf \"%s-redis\" .Release.Name }}" # Assumes secret name follows pattern
-  - secretRef:
-      name: "{{ printf \"%s-minio\" .Release.Name }}" # Assumes secret name matches service
+  AWS_REGION: "us-east-1"
+  S3_ENDPOINT_URL: "http://mindloom-minio:9000"
 
 envValueFrom:
-  POSTGRES_PASSWORD:
-    secretKeyRef:
-      name: "{{ printf \"%s-postgresql-pgvector\" .Release.Name }}"
-      key: postgres-password # Default key in Bitnami postgresql secret
   REDIS_PASSWORD:
     secretKeyRef:
-      name: "{{ printf \"%s-redis\" .Release.Name }}"
-      key: redis-password # Default key in Bitnami redis secret
-  AWS_ACCESS_KEY_ID: # S3 Access Key for MinIO
+      name: mindloom-redis
+      key: redis-password
+  AWS_ACCESS_KEY_ID:
     secretKeyRef:
-      name: "{{ printf \"%s-minio\" .Release.Name }}"
-      key: rootUser # Key for access key in MinIO secret
-  AWS_SECRET_ACCESS_KEY: # S3 Secret Key for MinIO
+      name: mindloom-minio
+      key: rootUser
+  AWS_SECRET_ACCESS_KEY:
     secretKeyRef:
-      name: "{{ printf \"%s-minio\" .Release.Name }}"
-      key: rootPassword # Key for secret key in MinIO secret
+      name: mindloom-minio
+      key: rootPassword
 
 # --- Dependencies --- #
 # Enable/disable and configure dependency charts here.
@@ -167,12 +148,9 @@ minio:
   resources:
     requests:
       memory: 2Gi
-  provisioning:
-    enabled: true
-    buckets:
-      - name: mindloom-data
-        region: us-east-1     # optional
-        policy: none          # none|download|upload|public
+  extraEnvVars:
+  - name: MINIO_DEFAULT_BUCKETS
+    value: mindloom-data
   mode: standalone
   auth:
     rootUser: minioadmin

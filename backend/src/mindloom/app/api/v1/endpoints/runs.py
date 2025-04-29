@@ -160,6 +160,11 @@ async def create_run(
     job_name = f"mindloom-run-{run_id}"
     namespace = settings.KUBERNETES_NAMESPACE
 
+    redis_host = os.getenv('REDIS_HOST', 'redis')
+    redis_port = int(os.getenv('REDIS_PORT', 6379))
+    redis_password = os.getenv('REDIS_PASSWORD', '')
+    redis_url = f"redis://:{redis_password}@{redis_host}:{redis_port}"
+
     # Prepare environment variables for the executor pod
     env_vars = [
         client.V1EnvVar(name="RUN_ID", value=str(run_id)),
@@ -169,7 +174,7 @@ async def create_run(
         # Assuming DATABASE_URL and REDIS_URL are needed by the executor
         # These should ideally come from Secrets or a ConfigMap in a real setup
         client.V1EnvVar(name="DATABASE_URL", value=settings.DATABASE_URL.unicode_string()),
-        client.V1EnvVar(name="REDIS_URL", value=settings.REDIS_URL or ""),
+        client.V1EnvVar(name="REDIS_URL", value=redis_url),
         # Add other necessary env vars (e.g., API keys via Secrets)
         # client.V1EnvVar(name="OPENAI_API_KEY", value_from=client.V1EnvVarSource(secret_key_ref=client.V1SecretKeySelector(name="mindloom-secrets", key="openai-api-key"))),
     ]

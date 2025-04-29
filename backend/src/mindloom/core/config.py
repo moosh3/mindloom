@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     # Example: postgresql+asyncpg://user:password@host:port/dbname
     DATABASE_URL: Optional[PostgresDsn] = Field(None, env="DATABASE_URL")
 
+    # Redis
+    # Example: redis://:password@host:port/0
+    REDIS_URL: Optional[str] = Field(None, env="REDIS_URL")
+
     # Kubernetes
     KUBERNETES_NAMESPACE: str = Field("default", env="KUBERNETES_NAMESPACE")
     KUBERNETES_EXECUTOR_IMAGE: str = Field("ghcr.io/moosh3/mindloom-executor:latest", env="KUBERNETES_EXECUTOR_IMAGE")
