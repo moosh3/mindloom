@@ -68,3 +68,8 @@
 
 - [ ] **Unit/Integration Tests:** Test Redis handler and WebSocket endpoint logic.
 - [ ] **End-to-End Test:** Test the full flow (API -> Job -> Logs -> WebSocket -> Client).
+
+## VII. Additional Tasks
+
+- [x] **Debug Backend Startup Issues (Import errors related to schemas, logging, AsyncSession).**
+    - *Note: Backend service is now running successfully via `docker compose up`.*

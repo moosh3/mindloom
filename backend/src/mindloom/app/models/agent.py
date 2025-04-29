@@ -83,6 +83,7 @@ from sqlalchemy.orm import relationship, Mapped, mapped_column
 from mindloom.db.base_class import Base
 from mindloom.db.association_tables import team_agent_association
 from mindloom.app.models.agent_content_bucket import agent_content_bucket_association
+from mindloom.app.models.user import UserORM
 
 class AgentORM(Base):
     """Database model for agents."""
@@ -100,7 +101,7 @@ class AgentORM(Base):
 
     owner_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
 
-    owner = relationship("User", back_populates="agents", lazy="selectin")
+    owner = relationship(UserORM, back_populates="agents", lazy="selectin")
 
     runs = relationship("RunORM", back_populates="agent", cascade="all, delete-orphan")
     schedules = relationship("AgentScheduleORM", back_populates="agent", cascade="all, delete-orphan")
