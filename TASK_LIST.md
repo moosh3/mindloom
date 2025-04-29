@@ -21,14 +21,14 @@
 - [x] Create database connection pool and configuration
 
 ### Authentication System
-- [ ] Implement JWT token generation and validation
-- [ ] Create user registration endpoint
-- [ ] Create user login endpoint
-- [ ] Implement role-based access control (RBAC)
-- [ ] Add department association to user profiles
-- [ ] Create authentication middleware for API routes
-- [ ] Implement password hashing and security measures
-- [ ] Set up JWT refresh token mechanism
+- [x] Implement JWT token generation and validation
+- [x] Create user registration endpoint
+- [x] Create user login endpoint
+- [x] Implement role-based access control (RBAC)
+- [x] Add department association to user profiles
+- [x] Create authentication middleware for API routes
+- [x] Implement password hashing and security measures
+- [x] Set up JWT refresh token mechanism
 
 ### Core API Development
 - [x] Create FastAPI project structure
@@ -42,16 +42,19 @@
 - [ ] Implement error handling middleware
 - [ ] Create OpenAPI documentation
 
-### Agent Factory Implementation
-- [ ] Create base AgentFactory class using Agno library
-- [ ] Implement token counting and context management
-- [ ] Create tool registration system
-- [ ] Set up AzureAI LLM integration
-- [ ] Build response streaming capabilities
-- [ ] Implement structured output parsing
-- [ ] Create agent memory and state management
-- [ ] Add tool execution pipeline
-- [ ] Implement error recovery for agent runs
+### Service Layer & Agent/Team Execution
+- [ ] AgentService: Refine dynamic instantiation of Agno Agent components (Model, Tools, Knowledge, Storage) based on DB config.
+- [ ] TeamService: Refine dynamic instantiation of Agno Team (Leader Model, Member Agents via AgentService, Knowledge, Storage).
+- [ ] Tool Handling: Enhance `AgentService._create_tools` for robust mapping and configuration of available tools.
+- [ ] Knowledge Base: Finalize knowledge base creation (`AgentService._create_knowledge`) including path resolution/content loading.
+- [ ] Storage: Solidify agent/team run storage configuration (`AgentService._create_storage`).
+- [ ] Run Execution: Implement core logic for executing agent/team runs (e.g., in `runs.py` endpoint or a dedicated run manager) using AgentService and TeamService.
+- [x] Run Execution: Backend logic for `/run` endpoint implemented (incl. error handling).
+- [ ] Streaming: Add response streaming capabilities to the run execution logic and API endpoints.
+- [x] Streaming: Backend API endpoint (`/run`) now streams responses (`application/x-ndjson`). Frontend implementation needed.
+- [ ] Context/Memory: Ensure Agno context window and memory parameters (history, etc.) are correctly configured via services.
+- [x] Error Handling: Implement error handling and status updates within the run execution logic (backend done).
+- [ ] Structured Output: Define and handle structured output requirements (likely via Agno Tools or agent instructions).
 
 ## Phase 2: Frontend v2 (P1) - ETA: 2 days
 
@@ -66,20 +69,20 @@
 - [ ] Add logout functionality
 
 ### Agent Management UI
-- [ ] Create agent listing page with filtering and search
-- [ ] Build agent creation form
+- [x] Create agent listing page with filtering and search
+- [x] Build agent creation form
 - [ ] Implement agent template selection interface
-- [ ] Create tool selection and configuration UI
-- [ ] Build variable definition interface
+- [x] Create tool selection and configuration UI
+- [x] Build variable definition interface
 - [ ] Add agent scheduling options
-- [ ] Create agent editing functionality
+- [x] Create agent editing functionality
 - [ ] Implement form validation
 - [ ] Add success/error feedback
 
 ### Team Management UI
-- [ ] Create team listing page
-- [ ] Build team creation interface
-- [ ] Implement agent selection for teams
+- [x] Create team listing page
+- [x] Build team creation interface
+- [x] Implement agent selection for teams
 - [ ] Add team type selection (Route, Coordinate, Collaborate)
 - [ ] Create team variables configuration
 - [ ] Implement team editing functionality
@@ -197,3 +200,27 @@
 - [ ] Add user adoption analytics
 - [ ] Create export capabilities for reports
 - [ ] Build custom report generation
+
+## Kubernetes Agent Execution Tasks
+
+- [ ] **Database:**
+    - [ ] Replace in-memory `db_runs` with a persistent database (e.g., PostgreSQL using SQLAlchemy) in `runs.py`.
+    - [ ] Implement database session setup (`get_db_session`) in `run_executor.py` using `DATABASE_URL`.
+    - [ ] Implement logic to fetch the `Run` object from the DB in `run_executor.py`.
+    - [ ] Implement logic to update `Run` status and timestamps (`RUNNING`, `COMPLETED`, `FAILED`) in the DB within `run_executor.py`.
+    - [ ] Implement logic to store run output/error in the DB within `run_executor.py`.
+- [ ] **Kubernetes & Execution:**
+    - [ ] Define actual `KUBERNETES_EXECUTOR_IMAGE` name in settings and build the image using the Dockerfile.
+    - [ ] Define resource requests/limits for the executor pod in `runs.py`.
+    - [ ] Add `imagePullSecrets` to pod template in `runs.py` if using a private container registry.
+    - [ ] Implement proper logging within `run_executor.py`.
+    - [ ] Instantiate actual `AgentService`/`TeamService` in `run_executor.py` (likely requiring the DB session).
+    - [ ] Implement fetching of runnable details (Agent/Team config) in `run_executor.py` using services.
+    - [ ] Import and instantiate `RedisMemoryDb` correctly in `run_executor.py` using `REDIS_URL` and team ID.
+    - [ ] Import and instantiate `Agno` `AgentRunner` in `run_executor.py` with runnable config and memory.
+    - [ ] Replace placeholder agent execution (`execute_agent`) with the actual call to `runner.run()` in `run_executor.py`.
+    - [ ] Ensure Kubernetes RBAC allows the API service account to create Jobs.
+- [ ] **Configuration & Validation:**
+    - [ ] Validate `runnable_id` exists using services in `runs.py` (optional but recommended).
+    - [ ] Ensure all necessary settings (`KUBERNETES_NAMESPACE`, `KUBERNETES_EXECUTOR_IMAGE`, `SQLALCHEMY_DATABASE_URI`, `REDIS_URL`) are present in `settings.py`.
+    - [ ] Handle passing sensitive information (like API keys) to the executor pod securely (e.g., via Kubernetes Secrets instead of plain env vars).

@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy.pool import QueuePool
+from sqlalchemy.pool import NullPool
 
 from mindloom.core.config import settings
 
@@ -8,9 +8,9 @@ from mindloom.core.config import settings
 # Default pool class is QueuePool. We can customize pool_size, max_overflow etc. if needed.
 engine = create_async_engine(
     settings.DATABASE_URL.unicode_string(), 
-    poolclass=QueuePool,
-    pool_size=5,  # Default is 5
-    max_overflow=10 # Default is 10
+    poolclass=NullPool
+    # pool_size=5,  # Default is 5 - Not applicable for NullPool
+    # max_overflow=10 # Default is 10 - Not applicable for NullPool
     # echo=True # Uncomment for debugging SQL queries
 )
 

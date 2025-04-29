@@ -59,7 +59,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     <div className={`flex h-screen flex-col border-r border-border bg-background transition-all duration-300 ${collapsed ? 'w-16' : 'w-64'}`}>
       <div className="flex h-16 items-center justify-between px-4">
         {!collapsed && (
-          <div className="text-xl font-bold text-primary">AgnoAgents</div>
+          <div className="text-xl font-bold text-primary">Mindloom</div>
         )}
         <button onClick={onToggle} className="rounded-md p-1 hover:bg-background-secondary">
           <Menu className="h-5 w-5 text-text-secondary" />

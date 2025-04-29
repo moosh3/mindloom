@@ -64,28 +64,25 @@ class RunORM(Base):
     input_variables: Mapped[dict | None] = mapped_column(JSON)
     output_data: Mapped[dict | None] = mapped_column(JSON)
 
+    # Store runnable details directly
+    runnable_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    runnable_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True) # 'agent' or 'team'
+
     # Foreign Keys
     # A run is typically initiated by a User (optional if system-initiated)
     user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
-    # A run is executed by an Agent
-    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id"))
 
     # Relationships
     user = relationship("User", back_populates="runs", lazy="selectin")
-    agent = relationship("AgentORM", back_populates="runs", lazy="selectin")
     logs = relationship("RunLogORM", back_populates="run", cascade="all, delete-orphan", lazy="selectin") # Relationship to logs
     artifacts = relationship("RunArtifactORM", back_populates="run", cascade="all, delete-orphan") # Relationship to artifacts
 
     def __repr__(self):
-        return f"<Run(id={self.id}, agent_id={self.agent_id}, status='{self.status}')>"
+        return f"<Run(id={self.id}, runnable_id={self.runnable_id}, type='{self.runnable_type}', status='{self.status}')>"
 
 # Add back-population to User model:
 # In user.py:
 # runs = relationship("RunORM", back_populates="user")
-
-# Add back-population to AgentORM model:
-# In agent.py:
-# runs = relationship("RunORM", back_populates="agent")
 
 
 # --- Run Log Models --- #
