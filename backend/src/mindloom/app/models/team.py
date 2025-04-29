@@ -126,6 +126,7 @@ from mindloom.app.models.team_content_bucket import team_content_bucket_associat
 from mindloom.app.models.user import UserORM
 from mindloom.app.models.run import RunORM
 
+
 class TeamORM(Base):
     """Database model for teams."""
     __tablename__ = "teams"
