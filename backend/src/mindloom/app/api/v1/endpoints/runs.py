@@ -17,7 +17,7 @@ from mindloom.services.teams import TeamService     # Keep for potential validat
 from mindloom.core.config import settings
 from mindloom.db.session import get_async_db_session
 from mindloom.services.runs import run_service # Import the service instance
-from mindloom.app.schemas.run import Run as RunSchema # Import Pydantic schema
+from mindloom.app.models.run import Run as RunSchema # Import Pydantic schema
 from mindloom.services import redis as redis_service # Import Redis service
 
 # --- Kubernetes Configuration --- 
