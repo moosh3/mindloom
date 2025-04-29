@@ -64,7 +64,7 @@ sequenceDiagram
     Client->>+API: POST /api/v1/runs (runnable_id, type, inputs)
     API->>+RunService: create_run(data)
     RunService->>+DB: INSERT Run (status=PENDING)
-    DB-->>-RunService: Run object (with run_id)
+    DB-->RunService: Run object (with run_id)
     RunService-->>-API: Run object
 
     API->>+K8s API: Create Job (image=executor, env_vars=run_id, ...)
