@@ -42,7 +42,7 @@ from mindloom.app.models.agent import AgentORM, ToolConfig
 from mindloom.app.models.content_bucket import ContentBucketORM
 from mindloom.app.models.file_metadata import FileMetadataORM
 from mindloom.core.config import settings
-from mindloom.db.session import get_async_db_engine
+from mindloom.db.session import get_async_db_session
 from mindloom.services.exceptions import (
     AgentRunError,
     KnowledgeCreationError,
@@ -622,7 +622,7 @@ class AgentService:
              logger.info(f"Agent {agent_id}: No storage config provided, defaulting to PostgresStorage.")
  
              # Get necessary async engine for run_sync
-             db_engine = get_async_db_engine()
+             db_session = get_async_db_session()
  
              # Get default settings
              default_db_url = str(self.app_settings.DATABASE_URL)
@@ -641,7 +641,7 @@ class AgentService:
  
              try:
                  # Run synchronous instantiation using run_sync
-                 async with db_engine.connect() as conn:
+                 async with db_session() as conn:
                      storage_instance = await conn.run_sync(_sync_instantiate_postgres)
                  return storage_instance
              except Exception as e:
@@ -655,7 +655,7 @@ class AgentService:
          try:
              if storage_type == "PostgresAgentStorage":
                  # Get necessary async engine for run_sync
-                 db_engine = get_async_db_engine()
+                 db_session = get_async_db_session()
  
                  # --- Corrected to use PostgresStorage with run_sync and db_url/table_name --- #
                  db_url = params.get("db_url", str(self.app_settings.DATABASE_URL))
@@ -676,7 +676,7 @@ class AgentService:
  
                  try:
                      # Run synchronous instantiation using run_sync
-                     async with db_engine.connect() as conn:
+                     async with db_session() as conn:
                          storage_instance = await conn.run_sync(_sync_instantiate_postgres)
                      return storage_instance
                  except Exception as e:
