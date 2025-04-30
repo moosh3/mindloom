@@ -139,22 +139,29 @@ class AgentService:
 
             # --- Instantiate Components --- #
             agno_model = None
+            embedder_instance = None # Initialize embedder
             agno_tools = []
             agno_knowledge_bases = []
             agno_storage = None
 
             try:
                 # 1. Language Model
-                agno_model, embedder_instance = self._create_model(agent_orm.llm_config)
+                # Corrected: _create_model returns only the model
+                agno_model = self._create_model(agent_orm.llm_config)
+
+                # 1b. Agent-level Embedder (primarily for storage/memory)
+                # Assuming agent_orm has an embedder_config field
+                embedder_instance = self._create_embedder(agent_orm.embedder_config)
 
                 # 2. Tools (using transformed config)
                 agno_tools = self._create_tools(formatted_tool_configs) 
 
-                # 3. Knowledge Bases (requires embedder, vector store creation)
-                # This assumes _create_knowledge_bases handles embedder/vector store internally
+                # 3. Knowledge Bases
+                # _create_knowledge_bases handles its own embedders internally per bucket
                 agno_knowledge_bases = await self._create_knowledge_bases(agent_orm, session)
 
                 # 4. Storage
+                # Pass the agent-level embedder instance created above
                 agno_storage = await self._create_storage(
                     agent_orm.storage_config,
                     agent_id, # Pass agent_id
