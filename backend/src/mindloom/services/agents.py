@@ -34,7 +34,7 @@ from agno.embedder.base import Embedder
 from langchain_core.documents import Document
 
 # Database/App imports
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, AsyncConnection
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.exc import NoResultFound
@@ -608,7 +608,7 @@ class AgentService:
             logger.error(f"Unsupported embedder provider specified: {provider}")
             raise ConfigurationError(f"Unsupported embedder provider: {provider}")
 
-    def _create_storage(
+    async def _create_storage(
         self,
         storage_config: Optional[Dict[str, Any]],
         agent_id: uuid.UUID,
@@ -618,10 +618,27 @@ class AgentService:
          """Creates the Agno Storage instance based on storage_config."""
          if not storage_config:
              # Default to Postgres if no config specified
-             storage_config = {
-                 "type": "PostgresAgentStorage",
-                 "params": {"table_name": "agent_runs"}
-             }
+             logger.info(f"Agent {agent_id}: No storage config provided, defaulting to PostgresAgentStorage.")
+             db_engine = get_db_engine()
+             session_maker = get_session_maker(db_engine)
+
+             # Define sync instantiation function
+             def _sync_instantiate_postgres():
+                 return PostgresAgentStorage(
+                     engine=db_engine,
+                     session_maker=session_maker,
+                     agent_id=str(agent_id),
+                     session_id=str(session_id)
+                 )
+
+             # Run synchronous instantiation using run_sync
+             try:
+                 async with db_engine.connect() as conn:
+                     storage_instance = await conn.run_sync(_sync_instantiate_postgres)
+                 return storage_instance
+             except Exception as e:
+                 logger.exception(f"Agent {agent_id}: Failed during run_sync instantiation of PostgresAgentStorage: {e}")
+                 raise StorageCreationError(f"Agent {agent_id}: Failed to instantiate default Postgres storage via run_sync.") from e
 
          storage_type = storage_config.get("type")
          params = storage_config.get("params", {})
@@ -629,18 +646,34 @@ class AgentService:
 
          try:
              if storage_type == "PostgresAgentStorage":
-                 table_name = params.get("table_name", "agent_runs")
-                 db_url = params.get("db_url", str(self.app_settings.DATABASE_URL))
-                 if not db_url:
-                     raise ConfigurationError(f"Agent {agent_id}: Database URL is required for PostgresAgentStorage but not found in config or settings.")
-                 return PostgresAgentStorage(
-                     db_url=db_url,
-                     table_name=table_name
-                 )
+                 db_engine = get_db_engine()
+                 session_maker = get_session_maker(db_engine)
+
+                 # Define sync instantiation function
+                 def _sync_instantiate_postgres():
+                     return PostgresAgentStorage(
+                         engine=db_engine,
+                         session_maker=session_maker,
+                         agent_id=str(agent_id),
+                         session_id=str(session_id),
+                         **params # Pass any extra params from config
+                     )
+
+                 # Run synchronous instantiation using run_sync
+                 try:
+                     async with db_engine.connect() as conn:
+                         storage_instance = await conn.run_sync(_sync_instantiate_postgres)
+                     return storage_instance
+                 except Exception as e:
+                     logger.exception(f"Agent {agent_id}: Failed during run_sync instantiation of PostgresAgentStorage '{storage_type}': {e}")
+                     raise StorageCreationError(f"Agent {agent_id}: Failed to instantiate storage type '{storage_type}' via run_sync.") from e
+
              elif storage_type == "RedisMemoryDb":
-                 redis_url = params.get("redis_url", self.app_settings.REDIS_URL)
-                 if not redis_url:
-                      raise ConfigurationError(f"Agent {agent_id}: Redis URL is required for RedisMemoryDb but not found in config or settings.")
+                 try:
+                     redis_url = params.get("redis_url", self.app_settings.REDIS_URL)
+                 except Exception as e:
+                     logger.error(f"Agent {agent_id}: Failed to instantiate RedisMemoryDb: {e}", exc_info=True)
+                     raise StorageCreationError(f"Agent {agent_id}: Failed to instantiate RedisMemoryDb: {e}") from e
 
                  # --> Added: Get embedder config from storage params
                  embedder_config = params.get("embedder_config")
