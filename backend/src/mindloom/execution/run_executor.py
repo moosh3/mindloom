@@ -6,6 +6,7 @@ from datetime import datetime
 import asyncio
 from typing import Dict, Any, Optional, Union
 import logging
+import traceback
 
 # SQLAlchemy Imports
 from sqlalchemy import select
@@ -77,6 +78,15 @@ class RedisPubSubHandler(logging.Handler):
              log_data["stack_info"] = self.formatStack(record.stack_info)
 
         return json.dumps(log_data)
+
+    def formatException(self, exc_info):
+        """
+        Format and return the specified exception information as a string.
+        This is used by the base class's format method when an exception
+        tuple is provided.
+        """
+        # Use traceback module for standard exception formatting
+        return "".join(traceback.format_exception(*exc_info)) if exc_info else ""
 
     def emit(self, record: logging.LogRecord):
         """Formats the record and publishes it asynchronously to the Redis channel."""

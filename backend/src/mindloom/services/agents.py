@@ -139,19 +139,16 @@ class AgentService:
 
             # --- Instantiate Components --- #
             agno_model = None
-            embedder_instance = None # Initialize embedder
             agno_tools = []
             agno_knowledge_bases = []
             agno_storage = None
 
             try:
                 # 1. Language Model
-                # Corrected: _create_model returns only the model
                 agno_model = self._create_model(agent_orm.llm_config)
 
-                # 1b. Agent-level Embedder (primarily for storage/memory)
-                # Assuming agent_orm has an embedder_config field
-                embedder_instance = self._create_embedder(agent_orm.embedder_config)
+                # 1b. Agent-level Embedder (removed - embedder is now created within _create_storage if needed)
+                # embedder_instance = self._create_embedder(agent_orm.embedder_config)
 
                 # 2. Tools (using transformed config)
                 agno_tools = self._create_tools(formatted_tool_configs) 
@@ -161,12 +158,12 @@ class AgentService:
                 agno_knowledge_bases = await self._create_knowledge_bases(agent_orm, session)
 
                 # 4. Storage
-                # Pass the agent-level embedder instance created above
+                # Pass the agent-level embedder instance created above (Removed - embedder instance no longer passed)
                 agno_storage = await self._create_storage(
                     agent_orm.storage_config,
                     agent_id, # Pass agent_id
                     session_id, # Pass session_id
-                    embedder=embedder_instance # Pass the embedder instance
+                    # embedder=embedder_instance # Removed embedder pass-through
                 )
 
                 agent_params = agent_orm.agent_config or {}
@@ -616,7 +613,7 @@ class AgentService:
         storage_config: Optional[Dict[str, Any]],
         agent_id: uuid.UUID,
         session_id: uuid.UUID,
-        embedder: Optional[Embedder] = None
+        # embedder: Optional[Embedder] = None # Removed argument
     ):
          """Creates the Agno Storage instance based on storage_config."""
          if not storage_config:
@@ -644,8 +641,18 @@ class AgentService:
                  redis_url = params.get("redis_url", self.app_settings.REDIS_URL)
                  if not redis_url:
                       raise ConfigurationError(f"Agent {agent_id}: Redis URL is required for RedisMemoryDb but not found in config or settings.")
+
+                 # --> Added: Get embedder config from storage params
+                 embedder_config = params.get("embedder_config")
+                 if not embedder_config or not isinstance(embedder_config, dict):
+                     raise ConfigurationError(f"Agent {agent_id}: 'embedder_config' dictionary is required within storage_config params for RedisMemoryDb.")
+
+                 # --> Added: Create embedder instance using the config
+                 embedder = self._create_embedder(embedder_config)
                  if not embedder:
-                     raise ConfigurationError(f"Agent {agent_id}: An embedder instance is required for RedisMemoryDb storage but was not provided.")
+                     # _create_embedder logs specific errors, raise general one here
+                     raise StorageCreationError(f"Agent {agent_id}: Failed to create embedder instance required for RedisMemoryDb.")
+                 # <-- End Added
 
                  # Construct a unique session ID for this specific agent run
                  redis_session_key = params.get("session_id_key_template", "agent:{agent_id}:run:{session_id}:memory")
