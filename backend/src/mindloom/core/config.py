@@ -7,6 +7,8 @@ from typing import Optional
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
+    OPENAI_API_KEY: Optional[str] = Field(None, env="OPENAI_API_KEY")
+
     # API Base Path
     API_V1_STR: str = Field("/api/v1", env="API_V1_STR")
 

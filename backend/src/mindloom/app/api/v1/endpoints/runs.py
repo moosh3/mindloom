@@ -179,6 +179,7 @@ async def create_run(
         # These should ideally come from Secrets or a ConfigMap in a real setup
         client.V1EnvVar(name="DATABASE_URL", value=settings.DATABASE_URL.unicode_string()),
         client.V1EnvVar(name="REDIS_URL", value=redis_url),
+        client.V1EnvVar(name="OPENAI_API_KEY", value=settings.OPENAI_API_KEY),
         # Add other necessary env vars (e.g., API keys via Secrets)
         # client.V1EnvVar(name="OPENAI_API_KEY", value_from=client.V1EnvVarSource(secret_key_ref=client.V1SecretKeySelector(name="mindloom-secrets", key="openai-api-key"))),
     ]
@@ -214,8 +215,7 @@ async def create_run(
     job_spec = client.V1JobSpec(
         template=template,
         backoff_limit=1, # Number of retries before marking job as failed
-        ttl_seconds_after_finished=300, # Auto-cleanup finished jobs after 5 minutes
-        active_deadline_seconds=600 # Force terminate jobs that run longer than 10 minutes
+        ttl_seconds_after_finished=3600 # Auto-cleanup finished jobs after 1 hour
     )
 
     # Define the Job object
