@@ -15,7 +15,7 @@ RUN_INPUT_MESSAGE="Hello, Agent! How are you today?"
 MODEL_CONFIG='{
   "provider": "openai",
   "model_id": "gpt-4o",
-  "api_key": "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",
+  "api_key": "sk-",
   "config_overrides": {}
 }'
 
