@@ -219,7 +219,7 @@ async def main():
             logger.info(f"Starting streaming run for {runnable_type} {runnable_id}...", extra=log_extra)
 
             # First await the arun coroutine to get the async iterator
-            async_iterator = await agno_runnable.arun(input=input_data, handlers=[redis_handler], stream=True)
+            async_iterator = await agno_runnable.arun(message="hello whats up", handlers=[redis_handler], stream=True)
 
             # Now iterate over the async iterator
             async for chunk in async_iterator:
