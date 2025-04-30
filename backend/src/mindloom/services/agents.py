@@ -168,11 +168,10 @@ class AgentService:
                 # logger.info(f"Agent {agent_id}: Storage created: {type(agno_storage).__name__ if agno_storage else 'None'}")
 
                 agent_params = agent_orm.agent_config or {}
-                agent_params["agent_id"] = str(agent_id)
 
                 agno_agent = Agent(
                     name=agent_orm.name,
-                    agent_id=agent_orm.id,
+                    agent_id=str(agent_id), # Pass agent_id explicitly
                     session_id=session_id,
 
                     model=agno_model,
