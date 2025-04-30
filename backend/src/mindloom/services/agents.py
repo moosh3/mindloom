@@ -158,16 +158,17 @@ class AgentService:
                 # _create_knowledge_bases handles its own embedders internally per bucket
                 agno_knowledge_bases = await self._create_knowledge_bases(agent_orm, session)
 
-                # 4. Storage
-                # Pass the agent-level embedder instance created above (Removed - embedder instance no longer passed)
-                agno_storage = await self._create_storage(
-                    agent_orm.storage_config,
-                    agent_id, # Pass agent_id
-                    session_id, # Pass session_id
-                    # embedder=embedder_instance # Removed embedder pass-through
-                )
+                # 4. Storage (Temporarily Disabled for Debugging)
+                # logger.info(f"Agent {agent_id}: Creating storage...")
+                # agno_storage = await self._create_storage(
+                #     agent_orm.storage_config,
+                #     agent_id, # Pass agent_id
+                #     session_id, # Pass session_id
+                # )
+                # logger.info(f"Agent {agent_id}: Storage created: {type(agno_storage).__name__ if agno_storage else 'None'}")
 
                 agent_params = agent_orm.agent_config or {}
+                agent_params["agent_id"] = str(agent_id)
 
                 agno_agent = Agent(
                     name=agent_orm.name,
@@ -177,24 +178,11 @@ class AgentService:
                     model=agno_model,
                     tools=agno_tools,
                     knowledge=agno_knowledge_bases,
-                    storage=agno_storage,
-
-                    description=agent_orm.description,
-                    instructions=agent_orm.instructions, 
-                    additional_context=agent_params.get("additional_context", ""),
-                    markdown=agent_params.get("markdown", False),
-                    num_history_reponses=agent_params.get("num_history_reponses", 5),
-                    clear_history_on_new_session=agent_params.get("clear_history_on_new_session", True),
-                    enable_semantic_memory=agent_params.get("enable_semantic_memory", True),
-                    enable_episodic_memory=agent_params.get("enable_episodic_memory", True),
-                    allow_user_interaction=agent_params.get("allow_user_interaction", True),
-                    **{k: v for k, v in agent_params.items() if k not in [
-                        "additional_context", "markdown", "num_history_reponses",
-                        "clear_history_on_new_session", "enable_semantic_memory",
-                        "enable_episodic_memory", "allow_user_interaction"
-                    ]} 
+                    # storage=agno_storage, # Temporarily Disabled
+                    **agent_params,
                 )
 
+                logger.info(f"Agent {agent_id}: Agno Agent instance created successfully.")
                 return agno_agent
 
             except Exception as e:
