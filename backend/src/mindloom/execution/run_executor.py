@@ -153,9 +153,9 @@ async def main():
         logger.addHandler(redis_handler)
         logger.info("RedisPubSubHandler added to logger.", extra=log_extra)
 
-        # Initialize DB Engine and Session Factory
-        engine = create_async_engine(str(settings.DATABASE_URL))
-        async_session_factory = async_session_maker(engine)
+        # Use the imported async_session_maker directly
+        # It's already been configured with the engine from session.py
+        async_session_factory = async_session_maker
         logger.info("Database engine and session factory initialized.", extra=log_extra)
 
         # Instantiate Services (they need settings)
