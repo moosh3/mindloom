@@ -23,7 +23,7 @@ from agno.models.azure import AzureOpenAI
 from agno.models.openai import OpenAIChat as OpenAI  # Added
 from agno.models.base import Model
 from agno.memory.v2.db.redis import RedisMemoryDb
-from agno.storage.agent.postgres import PostgresAgentStorage
+from agno.storage.postgres import PostgresStorage # Corrected import
 from agno.tools.toolkit import Toolkit
 from agno.vectordb.base import VectorDb
 from agno.vectordb.chroma import ChromaDb
@@ -618,27 +618,25 @@ class AgentService:
          """Creates the Agno Storage instance based on storage_config."""
          if not storage_config:
              # Default to Postgres if no config specified
-             logger.info(f"Agent {agent_id}: No storage config provided, defaulting to PostgresAgentStorage.")
-             db_engine = get_db_engine()
-             session_maker = get_session_maker(db_engine)
+             logger.info(f"Agent {agent_id}: No storage config provided, defaulting to PostgresStorage.")
+             # Get default settings
+             default_db_url = str(self.app_settings.DATABASE_URL)
+             default_table_name = "agent_sessions" # Default table name as per example
 
-             # Define sync instantiation function
-             def _sync_instantiate_postgres():
-                 return PostgresAgentStorage(
-                     engine=db_engine,
-                     session_maker=session_maker,
-                     agent_id=str(agent_id),
-                     session_id=str(session_id)
-                 )
+             if not default_db_url:
+                 raise ConfigurationError(f"Agent {agent_id}: Default Database URL is required for PostgresStorage but not found in settings.")
 
-             # Run synchronous instantiation using run_sync
              try:
-                 async with db_engine.connect() as conn:
-                     storage_instance = await conn.run_sync(_sync_instantiate_postgres)
-                 return storage_instance
+                 # Directly instantiate the correct class
+                 return PostgresStorage(
+                     db_url=default_db_url,
+                     table_name=default_table_name,
+                     # agent_id=str(agent_id), # Check if needed by PostgresStorage
+                     # session_id=str(session_id), # Check if needed by PostgresStorage
+                 )
              except Exception as e:
-                 logger.exception(f"Agent {agent_id}: Failed during run_sync instantiation of PostgresAgentStorage: {e}")
-                 raise StorageCreationError(f"Agent {agent_id}: Failed to instantiate default Postgres storage via run_sync.") from e
+                 logger.exception(f"Agent {agent_id}: Failed to instantiate default PostgresStorage: {e}")
+                 raise StorageCreationError(f"Agent {agent_id}: Failed to instantiate default Postgres storage.") from e
 
          storage_type = storage_config.get("type")
          params = storage_config.get("params", {})
@@ -646,27 +644,26 @@ class AgentService:
 
          try:
              if storage_type == "PostgresAgentStorage":
-                 db_engine = get_db_engine()
-                 session_maker = get_session_maker(db_engine)
+                 # --- Corrected to use PostgresStorage --- #
+                 db_url = params.get("db_url", str(self.app_settings.DATABASE_URL))
+                 table_name = params.get("table_name", "agent_sessions") # Default table name
 
-                 # Define sync instantiation function
-                 def _sync_instantiate_postgres():
-                     return PostgresAgentStorage(
-                         engine=db_engine,
-                         session_maker=session_maker,
-                         agent_id=str(agent_id),
-                         session_id=str(session_id),
-                         **params # Pass any extra params from config
-                     )
+                 if not db_url:
+                     raise ConfigurationError(f"Agent {agent_id}: 'db_url' is required for PostgresStorage but not found in params or settings.")
 
-                 # Run synchronous instantiation using run_sync
                  try:
-                     async with db_engine.connect() as conn:
-                         storage_instance = await conn.run_sync(_sync_instantiate_postgres)
-                     return storage_instance
+                     # Directly instantiate the correct class
+                     return PostgresStorage(
+                         db_url=db_url,
+                         table_name=table_name,
+                         # agent_id=str(agent_id), # Check if needed by PostgresStorage
+                         # session_id=str(session_id), # Check if needed by PostgresStorage
+                         **params # Pass remaining params, ensuring no overlap with explicit ones
+                     )
                  except Exception as e:
-                     logger.exception(f"Agent {agent_id}: Failed during run_sync instantiation of PostgresAgentStorage '{storage_type}': {e}")
-                     raise StorageCreationError(f"Agent {agent_id}: Failed to instantiate storage type '{storage_type}' via run_sync.") from e
+                     logger.exception(f"Agent {agent_id}: Failed to instantiate PostgresStorage '{storage_type}': {e}")
+                     raise StorageCreationError(f"Agent {agent_id}: Failed to instantiate storage type '{storage_type}'.") from e
+                 # --- End Correction --- #
 
              elif storage_type == "RedisMemoryDb":
                  try:
