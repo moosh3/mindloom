@@ -158,11 +158,6 @@ async def main():
         async_session_factory = async_session_maker
         logger.info("Database engine and session factory initialized.", extra=log_extra)
 
-        # Instantiate Services (they need settings)
-        agent_service = AgentService(app_settings=settings)
-        team_service = TeamService(app_settings=settings)
-        logger.info("AgentService and TeamService initialized.", extra=log_extra)
-
         # --- Fetch Run and Update Status to RUNNING ---
         async with async_session_factory() as session:
             run = await session.get(RunORM, run_id)
@@ -182,20 +177,26 @@ async def main():
         results_channel = f"run_results:{run_id_str}" # Define channel for result chunks
 
         try:
-            logger.info(f"Attempting to instantiate {runnable_type} with ID: {runnable_id}", extra=log_extra)
-            async with async_session_factory() as session: # Use a new session for service calls
+            # Get a single database session for the entire agent/team instantiation and execution
+            async with async_session_factory() as session:
+                # Instantiate the appropriate service and create the runnable instance
+                logger.info(f"Attempting to instantiate {runnable_type} with ID: {runnable_id}", extra=log_extra)
+
                 if runnable_type == 'agent':
+                    agent_service = AgentService(db=session)
+                    logger.info("AgentService initialized.", extra=log_extra)
                     agno_runnable = await agent_service.create_agno_agent_instance(
                         agent_id=runnable_id,
-                        session=session,
-                        session_id=run_id # Pass run_id as session_id context
+                        session_id=run_id  # Pass run_id as session_id context
                     )
                     logger.info(f"Agent {runnable_id} instantiated successfully.", extra=log_extra)
+
                 elif runnable_type == 'team':
+                    team_service = TeamService(db=session)
+                    logger.info("TeamService initialized.", extra=log_extra)
                     agno_runnable = await team_service.create_agno_team_instance(
                         team_id=runnable_id,
-                        session=session,
-                        session_id=run_id # Pass run_id as session_id context
+                        session_id=run_id  # Pass run_id as session_id context
                     )
                     logger.info(f"Team {runnable_id} instantiated successfully.", extra=log_extra)
 

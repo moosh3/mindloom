@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "mindloom.fullname" . }}-run-cleanup
+  labels:
+    {{- include "mindloom.labels" . | nindent 4 }}
+    app.kubernetes.io/component: run-cleanup
+spec:
+  schedule: "*/10 * * * *"  # Run every 10 minutes
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "mindloom.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: run-cleanup
+        spec:
+          serviceAccountName: {{ include "mindloom.serviceAccountName" . }}
+          containers:
+          - name: kubectl
+            image: bitnami/kubectl:latest
+            imagePullPolicy: IfNotPresent
+            command:
+            - /bin/sh
+            - -c
+            - |
+              # Delete any pods older than 30 minutes with the app=mindloom-run-executor label
+              kubectl delete pods -n {{ .Release.Namespace }} --field-selector status.phase!=Running,status.phase!=Succeeded --selector=app=mindloom-run-executor --timeout=60s
+              
+              # Delete completed jobs older than 10 minutes
+              kubectl delete jobs -n {{ .Release.Namespace }} --field-selector status.successful=1 --selector=app=mindloom-run --timeout=60s
+              
+              # Delete failed jobs older than 10 minutes
+              kubectl delete jobs -n {{ .Release.Namespace }} --field-selector status.failed=1 --selector=app=mindloom-run --timeout=60s
+          restartPolicy: OnFailure

@@ -214,7 +214,8 @@ async def create_run(
     job_spec = client.V1JobSpec(
         template=template,
         backoff_limit=1, # Number of retries before marking job as failed
-        ttl_seconds_after_finished=3600 # Auto-cleanup finished jobs after 1 hour
+        ttl_seconds_after_finished=300, # Auto-cleanup finished jobs after 5 minutes
+        active_deadline_seconds=600 # Force terminate jobs that run longer than 10 minutes
     )
 
     # Define the Job object

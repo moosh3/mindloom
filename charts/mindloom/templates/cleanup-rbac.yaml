@@ -1,0 +1,30 @@
+{{- if .Values.serviceAccount.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "mindloom.fullname" . }}-cleanup-role
+  labels:
+    {{- include "mindloom.labels" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "delete"]
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["get", "list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "mindloom.fullname" . }}-cleanup-rolebinding
+  labels:
+    {{- include "mindloom.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "mindloom.fullname" . }}-cleanup-role
+subjects:
+- kind: ServiceAccount
+  name: {{ include "mindloom.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}
