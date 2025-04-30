@@ -261,7 +261,7 @@ class AgentService:
             model_name = params.get("model_name", "gpt-4o")
             model_params = {
                 "api_key": api_key,
-                "model": model_name, # Changed key from model_name to model
+                "id": model_name, # Changed key from model to id based on Agno example
                 **params.get("config_overrides", {})
             }
 
