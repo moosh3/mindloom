@@ -47,4 +47,7 @@ class VectorStoreCreationError(ServiceError):
 class StorageCreationError(ServiceError):
     """Raised when a storage instance cannot be created."""
     pass
-    
+
+class RunCancelledException(ServiceError):
+    """Raised when a run is cancelled."""
+    pass

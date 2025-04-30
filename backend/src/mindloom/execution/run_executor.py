@@ -25,9 +25,9 @@ from mindloom.services.exceptions import (
     AgentCreationError,
     KnowledgeCreationError,
     StorageCreationError,
-    ServiceError
+    ServiceError,
+    RunCancelledException
 )
-from agno.errors import RunCancelledException # <--- Added Import
 
 # Import the Redis service for publishing logs
 import mindloom.services.redis as redis_service
