@@ -175,8 +175,8 @@ class AgentService:
                     session_id=session_id,
 
                     model=agno_model,
-                    tools=agno_tools,
-                    knowledge=agno_knowledge_bases,
+                    #tools=agno_tools,
+                    #knowledge=agno_knowledge_bases,
                     # storage=agno_storage, # Temporarily Disabled
                     **agent_params,
                 )
