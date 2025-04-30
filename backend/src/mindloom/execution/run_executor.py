@@ -19,6 +19,7 @@ from mindloom.services.agents import AgentService
 from mindloom.services.teams import TeamService
 # Import Agno Agent/Team classes
 from agno.agent import Agent as AgnoAgent
+from agno.agent import RunResponse
 from agno.team.team import Team as AgnoTeam
 # Import service exceptions for specific handling
 from mindloom.services.exceptions import (
@@ -184,7 +185,7 @@ async def main():
         # --- Instantiate and Execute Agent/Team ---
         agno_runnable: Optional[Union[AgnoAgent, AgnoTeam]] = None
         final_output: Optional[Dict] = None # Initialize final_output
-        aggregated_response: Optional[Union[RunResponse, TeamRunResponse]] = None # To hold the last chunk
+        aggregated_response: Optional[RunResponse] = None # To hold the last chunk
         results_channel = f"run_results:{run_id_str}" # Define channel for result chunks
 
         try:
@@ -225,7 +226,7 @@ async def main():
             async for chunk in async_iterator:
                 # Process each chunk (e.g., log, potentially publish to another channel)
                 logger.debug(f"Received stream chunk: {type(chunk)}", extra=log_extra)
-                if isinstance(chunk, (RunResponse, TeamRunResponse)):
+                if isinstance(chunk, (RunResponse)):
                     aggregated_response = chunk # Store the latest complete response object
 
                     # Publish the chunk to the results channel
