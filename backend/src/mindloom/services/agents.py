@@ -261,7 +261,7 @@ class AgentService:
             model_name = params.get("model_name", "gpt-4o")
             model_params = {
                 "api_key": api_key,
-                "model_name": model_name,
+                "model": model_name, # Changed key from model_name to model
                 **params.get("config_overrides", {})
             }
 
